@@ -1,0 +1,3 @@
+{
+  "extends": "@BUP_HACKATHON/config/tsconfig.base.json"
+}

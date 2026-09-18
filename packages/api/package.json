@@ -1,0 +1,21 @@
+{
+  "name": "@BUP_HACKATHON/api",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./*": "./src/*.ts"
+  },
+  "scripts": {
+    "check-types": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@BUP_HACKATHON/db": "workspace:*",
+    "@trpc/client": "^11.18.0",
+    "@trpc/server": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@BUP_HACKATHON/config": "workspace:*",
+    "typescript": "catalog:"
+  }
+}

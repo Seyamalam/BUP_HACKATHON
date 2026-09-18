@@ -1,0 +1,53 @@
+{
+  "name": "BUP_HACKATHON",
+  "private": true,
+  "workspaces": {
+    "packages": [
+      "apps/*",
+      "packages/*"
+    ],
+    "catalog": {
+      "zod": "^4.5.4",
+      "typescript": "^6.0.3",
+      "@types/node": "^26.4.1",
+      "varlock": "1.18.0",
+      "@cloudflare/workers-types": "^5.20260906.1",
+      "@trpc/server": "^11.18.0"
+    }
+  },
+  "type": "module",
+  "scripts": {
+    "dev": "vp run -r dev",
+    "build": "vp run -r build",
+    "check-types": "vp run -r check-types",
+    "check": "oxlint && oxfmt --write",
+    "lint": "vp lint",
+    "format": "vp fmt",
+    "staged": "vp staged",
+    "hooks:setup": "vp config",
+    "dev:server": "vp run --filter hono dev:bare",
+    "db:generate": "vp run --filter @BUP_HACKATHON/db db:generate",
+    "deploy": "vp run --filter @BUP_HACKATHON/infra deploy",
+    "destroy": "vp run --filter @BUP_HACKATHON/infra destroy",
+    "env:generate": "varlock codegen --path ./apps/server/ && varlock codegen --path ./packages/db/",
+    "postinstall": "varlock codegen --path ./apps/server/ && varlock codegen --path ./packages/db/"
+  },
+  "dependencies": {
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@BUP_HACKATHON/config": "workspace:*",
+    "@cloudflare/workers-types": "catalog:",
+    "@types/node": "catalog:",
+    "oxfmt": "^0.66.0",
+    "oxlint": "^1.81.0",
+    "rolldown": "1.2.7",
+    "typescript": "catalog:",
+    "varlock": "catalog:",
+    "vite-plus": "0.3.1"
+  },
+  "overrides": {
+    "vite": "npm:@voidzero-dev/vite-plus-core@0.3.1"
+  },
+  "packageManager": "bun@1.4.0"
+}
