@@ -27,6 +27,10 @@ export const DEFAULT_GEMINI_MODELS = [
 ];
 
 const ATTEMPT_TIMEOUT_MS = 20_000;
+// Hard ceiling for the whole race: the judge caps requests at 30 s, so a
+// total provider outage must end in a controlled 500 before that, not in a
+// judge-side timeout.
+const OVERALL_DEADLINE_MS = 25_000;
 // Provider tier N starts N * FALLBACK_DELAY_MS after the first tier: the
 // highest-priority configured provider wins when healthy, later tiers act
 // as near-instant fallbacks. Tier order: AI Gateway, Gemini, OpenRouter.
@@ -215,7 +219,12 @@ export async function interpretNotes(
   );
 
   try {
-    return await Promise.any(races);
+    return await Promise.race([
+      Promise.any(races),
+      sleep(OVERALL_DEADLINE_MS).then(() => {
+        throw new Error(`all LLM attempts exceeded the ${OVERALL_DEADLINE_MS / 1000} s overall deadline`);
+      }),
+    ]);
   } catch (err) {
     const details =
       err instanceof AggregateError

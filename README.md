@@ -189,17 +189,17 @@ through `vars` in `wrangler.jsonc`. Override one without redeploying with
 Pullable image on Docker Hub (linux/amd64 and linux/arm64):
 
 ```
-docker.io/touhidulalam41/gridwise-llm:1.1.0
-digest: sha256:bfa069e352fc703040c7154f6a0d920b961fcb92d796d49b5995404df6bda5ef
+docker.io/touhidulalam41/gridwise-llm:1.2.0
+digest: sha256:a49438f95ebd230d4744c0e76b4fc5f7fd4c81e97da05ecd78fee4f6116aef42
 ```
 
 ```bash
-docker pull docker.io/touhidulalam41/gridwise-llm:1.1.0
+docker pull docker.io/touhidulalam41/gridwise-llm:1.2.0
 docker run --rm -p 3000:3000 \
   -e AI_GATEWAY_API_KEY=vck_... \
   -e GOOGLE_GENERATIVE_AI_API_KEY=AQ... \
   -e OPENROUTER_API_KEY=sk-or-... \
-  docker.io/touhidulalam41/gridwise-llm:1.1.0
+  docker.io/touhidulalam41/gridwise-llm:1.2.0
 curl http://localhost:3000/health
 # {"status":"ok"}
 ```
