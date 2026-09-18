@@ -1,0 +1,9 @@
+node_modules
+**/node_modules
+**/.env
+**/.env.*
+.git
+.argent
+BUP_CSE_FEST_2026_Participant_Docs
+**/*.log
+.DS_Store

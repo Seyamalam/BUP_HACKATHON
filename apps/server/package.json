@@ -3,29 +3,28 @@
   "type": "module",
   "main": "src/index.ts",
   "scripts": {
-    "build": "tsdown",
+    "dev": "wrangler dev",
+    "dev:node": "bun run --env-file=.env src/node-entry.ts",
+    "deploy": "wrangler deploy",
     "check-types": "tsc --noEmit",
-    "compile": "bun build --compile --no-compile-autoload-dotenv --minify --sourcemap --bytecode ./src/index.ts --outfile server",
+    "test:samples": "bun run scripts/test-samples.ts",
     "env:generate": "varlock codegen"
   },
   "dependencies": {
-    "@BUP_HACKATHON/api": "workspace:*",
-    "@BUP_HACKATHON/db": "workspace:*",
-    "@ai-sdk/devtools": "^1.0.15",
-    "@ai-sdk/google": "^4.0.64",
-    "@hono/trpc-server": "^0.4.2",
-    "@trpc/server": "catalog:",
+    "@hono/node-server": "^2.1.1",
+    "@openrouter/ai-sdk-provider": "^3.0.0",
     "ai": "^7.0.93",
     "hono": "^4.13.7",
+    "javascript-lp-solver": "^1.0.3",
     "varlock": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {
     "@BUP_HACKATHON/config": "workspace:*",
-    "@BUP_HACKATHON/infra": "workspace:*",
     "@cloudflare/workers-types": "catalog:",
+    "@types/bun": "^1.4.2",
     "@types/node": "catalog:",
-    "tsdown": "^0.23.0",
-    "typescript": "catalog:"
+    "typescript": "catalog:",
+    "wrangler": "^4.0.0"
   }
 }

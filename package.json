@@ -17,20 +17,19 @@
   },
   "type": "module",
   "scripts": {
-    "dev": "vp run -r dev",
+    "dev": "bun run --cwd apps/server dev:node",
+    "dev:worker": "bun run --cwd apps/server dev",
     "build": "vp run -r build",
-    "check-types": "vp run -r check-types",
+    "check-types": "bun run --cwd apps/server check-types",
     "check": "oxlint && oxfmt --write",
     "lint": "vp lint",
     "format": "vp fmt",
     "staged": "vp staged",
     "hooks:setup": "vp config",
-    "dev:server": "vp run --filter hono dev:bare",
-    "db:generate": "vp run --filter @BUP_HACKATHON/db db:generate",
-    "deploy": "vp run --filter @BUP_HACKATHON/infra deploy",
-    "destroy": "vp run --filter @BUP_HACKATHON/infra destroy",
-    "env:generate": "varlock codegen --path ./apps/server/ && varlock codegen --path ./packages/db/",
-    "postinstall": "varlock codegen --path ./apps/server/ && varlock codegen --path ./packages/db/"
+    "test:samples": "bun run --cwd apps/server test:samples",
+    "deploy": "bun run --cwd apps/server deploy",
+    "env:generate": "varlock codegen --path ./packages/db/",
+    "postinstall": "varlock codegen --path ./packages/db/"
   },
   "dependencies": {
     "zod": "catalog:"

@@ -1,0 +1,12 @@
+{
+  "$schema": "../../node_modules/wrangler/wrangler-dist/config-schema.json",
+  "name": "gridwise-llm",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-09-18",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": true,
+  "minify": true,
+  "vars": {
+    "OPENROUTER_MODELS": "inclusionai/ling-3.0-flash-sante:free,openrouter/free",
+  },
+}

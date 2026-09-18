@@ -1,104 +1,188 @@
-# BUP_HACKATHON
+# GridWise LLM — Smart Campus Energy Optimization
 
-This project was created with [Better-T-Stack](https://github.com/AmanVarshney01/create-better-t-stack), a modern TypeScript stack that combines Hono, TRPC, and more.
+BUP CSE Fest 2026 Hackathon · Online Preliminary Round
 
-## Features
+One HTTP API service that interprets natural-language operator notes with an LLM,
+validates the interpretation deterministically, and returns a valid, cost-optimal
+24-hour campus energy schedule (grid + solar + battery).
 
-- **TypeScript** - For type safety and improved developer experience
-- **Hono** - Lightweight, performant server framework
-- **tRPC** - End-to-end type-safe APIs
-- **workers** - Runtime environment
-- **Drizzle** - TypeScript-first ORM
-- **Cloudflare D1** - Database engine
-- **Oxlint** - Oxlint + Oxfmt (linting & formatting)
-- **Vite+** - Unified Vite toolchain, workspace task runner, linting, and formatting
+## Architecture
 
-## Getting Started
+```
+POST /optimize-energy
+  ├─ 1. Zod request validation .................. 400 on malformed input, never a crash
+  ├─ 2. LLM interpretation (OpenRouter) ......... one call for ALL notes, per model;
+  │     the model chain is RACED in parallel, first guardrail-passing response wins,
+  │     guardrail failures re-prompt the model with the exact validation error
+  ├─ 3. Deterministic guardrails ................ directive type enum, 1:1 note mapping,
+  │     hours unique/ascending/0-23, factor ∈ [0,1], reserve ≤ capacity, applies semantics
+  ├─ 4. LP optimizer (javascript-lp-solver) ..... min Σ grid·tariff s.t. energy balance,
+  │     effective solar, battery dynamics/bounds/rate limits, directive windows, grid caps,
+  │     end-of-day battery neutrality (E_final = E_initial)
+  ├─ 5. Replay verifier (judge mirror) .......... re-checks every rule before responding
+  └─ 6. Response ................................ interpretation + 24h plan + recomputed totals
+```
 
-First, install the dependencies:
+**Why this shape:** the LLM is treated as untrusted. It never touches the math directly —
+it emits structured directives that deterministic code validates, applies, and verifies.
+If the LLM misbehaves, the service retries, falls back across a model chain, or returns a
+controlled error. It never invents directives and never crashes.
+
+| Layer                                       | Technology                                                                                   |
+| ------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| HTTP server                                 | Hono (Cloudflare Workers / Node via `@hono/node-server`)                                     |
+| LLM                                         | OpenRouter via Vercel AI SDK (`generateObject`, structured JSON)                             |
+| Models (free tier chain, raced in parallel) | `inclusionai/ling-3.0-flash-sante:free` ⚡ `openrouter/free` — first validated response wins |
+| Guardrails                                  | Hand-written deterministic validators (zod + rule checks)                                    |
+| Optimizer                                   | `javascript-lp-solver` — exact LP Simplex, ~120 vars, ~1-3 ms                                |
+| Verification                                | Deterministic schedule replay mirroring the judge's checks                                   |
+| Deployment                                  | Cloudflare Workers (`wrangler deploy`), Docker fallback image                                |
+
+The LLM is strictly inside the operator-note interpretation path — its structured output
+becomes the optimizer's constraints. The optimizer, guardrails, and verifier are pure
+deterministic TypeScript (no LLM in the math path).
+
+## API
+
+- `GET /health` → `{"status":"ok"}`
+- `POST /optimize-energy` — accepts the scenario JSON (`scenario_id`, `operator_notes` (1-3),
+  `hours` (24 × demand/solar/tariff), `battery`) and returns `scenario_id`,
+  `directive_interpretation`, `hourly_plan`, `total_grid_kwh`, `total_cost_bdt`,
+  `peak_grid_kwh`, `plan_summary` per the Problem Statement.
+
+Errors are controlled JSON: `400 malformed_json` / `400 invalid_request` /
+`500 internal_error` — no stack traces, no secrets.
+
+## Environment variables
+
+| Name                 | Required  | Description                                           |
+| -------------------- | --------- | ----------------------------------------------------- |
+| `OPENROUTER_API_KEY` | yes       | OpenRouter API key (secret — never committed)         |
+| `OPENROUTER_MODELS`  | no        | Comma-separated model chain override (defaults above) |
+| `PORT`               | no (Node) | Listen port for the Node/Docker entry (default 3000)  |
+
+## Local quickstart (clean environment)
+
+Prerequisites: [Bun](https://bun.sh) v1.4+.
 
 ```bash
+git clone <repo-url> && cd BUP_HACKATHON
 bun install
-```
 
-## Database Setup
+# Configure the key (file is git-ignored):
+printf 'OPENROUTER_API_KEY=sk-or-...\n' > apps/server/.env
 
-This project uses Cloudflare D1 (SQLite) with Drizzle ORM.
-
-Runtime database access uses the Cloudflare `DB` binding from `packages/infra/alchemy.run.ts`. If a local `DATABASE_URL` is present, it is only for database tooling.
-
-Alchemy provisions the D1 database and applies migrations during `deploy`.
-
-1. Generate migration files:
-
-```bash
-bun run db:generate
-```
-
-Then, run the development server:
-
-```bash
+# Start the API (Node entry, http://localhost:3000):
 bun run dev
+
+# In another terminal:
+curl http://localhost:3000/health
+# => {"status":"ok"}
 ```
 
-The API is running at [http://localhost:3000](http://localhost:3000).
-
-## Environment Configuration
-
-Each app owns its environment schema in `.env.schema`. Varlock generates `src/env.ts` during installation; run `bun run env:generate` after changing a schema. Commit schemas, and keep secrets in ignored env files or your deployment platform.
-
-Import the generated `ENV` accessor in application code. Shared database and auth packages receive configuration or initialized clients from the application. See [Varlock's monorepo guide](https://varlock.dev/guides/monorepos/).
-
-For Cloudflare, Alchemy loads and validates deployment inputs with `varlock/auto-load` in its Node/Bun deployment process. Worker code reads native bindings; web clients use the framework's public env API through `src/env.public.ts` where needed. Alchemy supplies resource URLs and managed database credentials. In-Worker Varlock protections are deferred until an official Alchemy integration is available; see [the non-Wrangler deployment guidance](https://varlock.dev/integrations/cloudflare/#non-wrangler-deploy-tools-alchemy-sst-pulumi).
-
-Bun's automatic env loading is disabled in `bunfig.toml`; the framework integration or server bootstrap loads Varlock. Node deployments must include Varlock and its dependencies alongside the app schema.
-
-Run standalone Node/Bun tools that use Varlock from the owning app directory so they load that app's schema and env files. `env:generate` only generates TypeScript files; it does not initialize environment values in a subsequent command.
-
-## Deployment
-
-### Alchemy
-
-- Target: server on Cloudflare
-- Configure provider accounts: `cd packages/infra && bunx alchemy profile edit`
-- Dev: bun run dev
-- Deploy: bun run deploy
-- Destroy: bun run destroy
-
-`alchemy profile edit` stores the selected Axiom, Cloudflare, Neon, PlanetScale, and/or Prisma provider profiles under `~/.alchemy`; no provider-specific setup command is required by this scaffold.
-
-Deploys are staged and default to a personal `dev_<username>` stage. For production, run the deploy with an explicit stage from `packages/infra`:
+Run one public sample case against the local server:
 
 ```bash
-cd packages/infra && bunx alchemy deploy --stage production
+cd apps/server
+python3 -c "
+import json, urllib.request
+pack = json.load(open('../../BUP_CSE_FEST_2026_Participant_Docs/BUP_CSE_FEST_2026_Preli_Public_Sample_Cases.json'))
+req = urllib.request.Request('http://localhost:3000/optimize-energy',
+  data=json.dumps(pack['cases'][0]['input']).encode(),
+  headers={'content-type':'application/json'})
+print(json.dumps(json.load(urllib.request.urlopen(req)), indent=2)[:800])
+"
 ```
 
-## Git Hooks and Formatting
+## Public sample test procedure (expected result)
 
-- Optional native Vite+ hooks: `bun run hooks:setup`
-- Docs: [Vite+ commit hooks](https://viteplus.dev/guide/commit-hooks)
-- Run checks: `bun run check`
-
-## Project Structure
-
-```
-BUP_HACKATHON/
-├── apps/
-│   └── server/      # Backend API (Hono, TRPC)
-├── packages/
-│   ├── api/         # API layer / business logic
-│   └── db/          # Database schema & queries
+```bash
+cd apps/server
+bun run test:samples
 ```
 
-## Available Scripts
+This boots the server on `:3100`, POSTs all 10 public cases, and mirrors the judge:
+interpretation vs ground truth, plan replayed against both our and the expected
+interpretations, totals recomputation, and cost ratio vs the reference optimum.
+**Expected:** `10 passed, 0 failed`, cost ratio 1.0000 per case.
 
-- `bun run dev`: Start all applications in development mode
-- `bun run build`: Build all applications
-- `bun run dev:server`: Start only the server
-- `bun run check-types`: Check TypeScript types across all apps
-- `bun run db:generate`: Generate database client/types
-- `bun run check`: Run Vite+ format/lint checks and workspace TypeScript checks
-- `bun run lint`: Run Vite+ lint checks
-- `bun run format`: Run Vite+ formatting
-- `bun run staged`: Run Vite+ checks against staged files
-- `bun run hooks:setup`: Install Vite+ native Git hooks with `vp config`
+The optimizer alone (no LLM) reproduces the reference optimal cost on all 10 public
+cases exactly (ratio 1.0000), in ~1-3 ms per scenario.
+
+## Deployment (Cloudflare Workers)
+
+```bash
+cd apps/server
+bunx wrangler login                              # one-time
+bunx wrangler secret put OPENROUTER_API_KEY    # store the key as a secret
+bun run deploy                                  # wrangler deploy
+```
+
+The worker name is `gridwise-llm`; wrangler prints the public
+`https://gridwise-llm.<account>.workers.dev` URL. Free-tier model chain is configured
+via `vars.OPENROUTER_MODELS` in `wrangler.jsonc` (override without redeploying with
+`bunx wrangler secret put OPENROUTER_MODELS`).
+
+## Docker fallback
+
+Pullable registry reference (Docker Hub):
+
+```
+docker.io/touhidulalam41/gridwise-llm:1.0.0
+digest: sha256:94c7d7e3b208984f1c3ace23d1e501d16fe2abc58fbe8730520f59417751982f
+```
+
+```bash
+docker pull docker.io/touhidulalam41/gridwise-llm:1.0.0
+docker run --rm -p 3000:3000 -e OPENROUTER_API_KEY=sk-or-... \
+  docker.io/touhidulalam41/gridwise-llm:1.0.0
+curl http://localhost:3000/health
+# => {"status":"ok"}
+```
+
+Or build from source:
+
+```bash
+docker build -t gridwise-llm:latest .
+docker run --rm -p 3000:3000 -e OPENROUTER_API_KEY=sk-or-... gridwise-llm:latest
+```
+
+The image builds a single-file bundle (`bun build`) and binds to `0.0.0.0:3000`.
+No secrets are baked into the image; `OPENROUTER_API_KEY` is a runtime env var.
+
+## Repository layout
+
+```
+apps/server/
+  src/index.ts        Hono app: /health, /optimize-energy, controlled errors
+  src/schema.ts       Zod request contract + shared types
+  src/llm.ts          OpenRouter structured interpretation + model chain + cache
+  src/guardrails.ts   Deterministic validation/normalization of LLM output
+  src/optimizer.ts    Effective-scenario builder + LP formulation/solve
+  src/verifier.ts     Judge-mirror replay verifier
+  src/config.ts       Runtime env (Worker bindings / process.env)
+  src/node-entry.ts   Node/Bun entry (Docker + local dev)
+  scripts/test-samples.ts   Public sample harness
+  wrangler.jsonc      Cloudflare Worker config
+Dockerfile            Fallback image (multi-stage bun build)
+```
+
+## Dependencies (direct)
+
+`hono`, `@hono/node-server`, `ai` (Vercel AI SDK), `@openrouter/ai-sdk-provider`,
+`javascript-lp-solver`, `zod`; dev: `wrangler`, `typescript`, `@types/bun`.
+Built with AI coding assistance. All libraries credited per their licenses.
+
+## Known limitations
+
+- Free-tier OpenRouter models have provider-side rate limits; the service retries and
+  falls back across the configured chain, but an exhausted chain returns a controlled 500.
+  Provide your own key / paid model via `OPENROUTER_MODELS` for production stability.
+- The in-isolate interpretation cache is best-effort (per Worker isolate).
+- Solar curtailment is free (per spec); grid export is not modeled (per spec).
+
+## Security
+
+No secrets in the repository, logs, or API responses. `.env` is git-ignored; the
+Cloudflare key lives in `wrangler secret`; Docker receives keys at runtime only.
+LLM output is validated deterministically before it can influence the schedule.

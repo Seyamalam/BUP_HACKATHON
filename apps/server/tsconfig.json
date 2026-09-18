@@ -2,6 +2,7 @@
   "extends": "@BUP_HACKATHON/config/tsconfig.base.json",
   "compilerOptions": {
     "noEmit": true,
+    "types": ["node", "bun"],
     "paths": {
       "@/*": ["./src/*"]
     },
