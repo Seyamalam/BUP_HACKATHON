@@ -1,31 +1,26 @@
-# GridWise LLM — demo video script
+# GridWise LLM — demo video script (v2, demo-first)
 
-Total runtime: 170 seconds (2:50). The video shows each line as a subtitle while
-its scene plays. Read the subtitle text aloud at a calm pace; the scene window
-gives you the time budget. Record one take per scene if that is easier — the
-audio can be stitched per scene.
+Total runtime: 165 seconds (2:45). Team: **Huntrix**.
+Each subtitle stays up for its whole scene window, which is your time budget.
+Read at a calm pace; trim pauses, not words.
 
 | Scene | Window | Lines (read these) |
 |---|---|---|
-| 1 | 0:00-0:08 | GridWise LLM. One API that turns plain operator notes into a valid, low cost, 24 hour energy schedule. |
-| 2 | 0:08-0:23 | A smart campus runs on grid power, rooftop solar, and a battery. Demand, sunlight, and price change hourly. Operators send short notes. Our job: understand the notes, respect the physics, minimize the cost. |
-| 3 | 0:23-0:36 | The contract is two endpoints. Health returns status ok. Optimize-energy takes the scenario and notes, and returns the interpretation plus a full 24 hour plan. |
-| 4 | 0:36-0:54 | The pipeline has six stages. Validate the request. Interpret the notes with a language model. Check the output with deterministic guardrails. Fold the directives into constraints. Solve a linear program. Then verify the plan before responding. |
-| 5 | 0:54-1:16 | The model only handles language. A note like "solar drops to 20 percent between 1 and 3 PM" becomes a structured directive with hours and a factor. Every output passes guardrails: known types, sorted hours, valid numbers. Fail, and the model is re-prompted with the exact error. |
-| 6 | 1:16-1:32 | Three Gemini models answer in parallel. OpenRouter follows two and a half seconds later as a hedge. The first valid response wins. Repeat scenarios skip the model entirely through a per-isolate cache. |
-| 7 | 1:32-1:50 | The optimizer is exact. A 120-variable linear program minimizes grid cost under every rule: balance, battery dynamics, rate limits, solar caps, directive windows, and end of day neutrality. It solves in 2 milliseconds and matches the reference optimum on all ten public cases. |
-| 8 | 1:50-2:06 | Nothing leaves unchecked. A replay verifier mirrors the judge. It replays the plan hour by hour against every directive and every rule. The totals in the response are recomputed from the plan itself. |
-| 9 | 2:06-2:24 | Here is a live call against the deployed worker. The notes describe panel washing and a reserve. Both are interpreted correctly, and the plan comes back at the exact optimal cost in about one and a half seconds. |
-| 10 | 2:24-2:38 | The harness runs all ten public cases against the live API. Ten passed, zero failed, with a cost ratio of exactly one on every case. |
-| 11 | 2:38-2:50 | Deployed on Cloudflare Workers. Docker fallback on Docker Hub. Everything reproducible from the README. Thank you for watching. |
+| 1 | 0:00-0:06 | GridWise LLM, by Team Huntrix. Operator notes in, optimal energy schedules out. |
+| 2 | 0:06-0:34 | Demo first. This is a live benchmark against the production API. Ten repeat requests: the interpretation cache answers all ten, median 172 milliseconds. Ten brand new notes: each one runs the full language model path, median 1.7 seconds. Twenty requests, twenty 200s. The judge allows thirty seconds per call. |
+| 3 | 0:34-0:49 | The problem: a campus on grid power, rooftop solar, and a battery. Operators send notes in plain English. "Solar drops to 20 percent from 1 to 3 PM." The service must understand the note, respect every energy rule, and minimize grid cost. |
+| 4 | 0:49-1:21 | Architecture: six stages per request. Zod validates the body. The language model reads every note in one call and returns structured directives. Deterministic guardrails reject unknown types, unsorted hours, and impossible numbers. Valid directives fold into constraints. A 120-variable linear program then solves the day: hourly balance, battery dynamics, rate limits, solar caps, directive windows, and the battery ends the day where it started. Before responding, a verifier replays the plan against every rule the judge runs. |
+| 5 | 1:21-1:43 | Now the fun part. We are students. Free tiers are the budget. So every request races a chain of free models: an AI Gateway chain and three Gemini models answer first, OpenRouter hedges two and a half seconds later. First valid answer wins. And a repeat scenario skips every model through the cache. |
+| 6 | 1:43-2:01 | The API documents itself. The OpenAPI spec lives at /openapi.json, rendered by Scalar at /docs: every endpoint, every field, every enum, served by the same worker the judge calls. |
+| 7 | 2:01-2:21 | The optimizer is exact math, not a heuristic. Charge and discharge are netted into one clean battery action per hour. Solve time is about two milliseconds. It matches the reference optimum on all ten public cases, ratio one point zero. |
+| 8 | 2:21-2:37 | Results. Ten public cases, ten passed. Interpretations match ground truth on every note. Plans stay valid under our directives and the judge's. Cold latency around two seconds, cached under two hundred milliseconds. |
+| 9 | 2:37-2:45 | GridWise LLM. Cloudflare Workers, Docker on Docker Hub, everything reproducible from the README. Team Huntrix, thanks for watching. |
 
 ## Recording notes
 
-- Total: 170 seconds of video. Leave a half second of silence at the very start
-  if you can; it makes alignment easier.
-- Any common format works for the recording (m4a, mp3, wav). Phone or laptop mic
-  is fine.
-- If a line runs long, read a touch faster rather than skipping words; the
-  subtitle stays up for the whole scene window.
-- After recording, hand over the audio file. It gets muxed with the rendered
-  video using ffmpeg: `ffmpeg -i video.mp4 -i audio.m4a -c:v copy -c:a aac -shortest final.mp4`.
+- Total: 165 seconds of video. Leave a half second of silence at the start.
+- Any common audio format works (m4a, mp3, wav). Phone or laptop mic is fine.
+- Scene 2 runs long on purpose: the benchmark footage plays under you. Keep a
+  steady pace and let the rows fill in behind your voice.
+- After recording, hand over the file. It gets muxed with ffmpeg:
+  `ffmpeg -i video.mp4 -i audio.m4a -c:v copy -c:a aac -shortest gridwise-final.mp4`.

@@ -3,6 +3,8 @@ import { cors } from "hono/cors";
 import { logger } from "hono/logger";
 
 import { ConfigError, getConfig } from "./config";
+import { demoHtml } from "./demo";
+import { docsHtml, openApiSpec } from "./docs";
 import { interpretNotes } from "./llm";
 import { buildEffectiveScenario, solveScenario } from "./optimizer";
 import { requestSchemaBase, validateRequestSemantics } from "./schema";
@@ -21,6 +23,18 @@ app.use(
 
 app.get("/health", (c) => {
   return c.json({ status: "ok" });
+});
+
+app.get("/docs", (c) => {
+  return c.html(docsHtml());
+});
+
+app.get("/openapi.json", (c) => {
+  return c.json(openApiSpec());
+});
+
+app.get("/demo", (c) => {
+  return c.html(demoHtml());
 });
 
 app.post("/optimize-energy", async (c) => {

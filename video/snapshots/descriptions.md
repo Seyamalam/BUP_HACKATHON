@@ -4,74 +4,113 @@
 
 Compare each description against your storyboard spec. A "black frame" or "loading screen" for a content beat is a bug.
 
-## frame-00-at-4s.png
+## frame-00-at-3s.png
 Based on the image provided, here is a summary of the project:
 
 *   **Project Name:** GridWise LLM
 *   **Purpose:** Smart Campus Energy Optimization
-*   **Core Function:** It is an API designed to convert plain-language operator notes into a valid, cost-optimized, 24-hour energy schedule.
-*   **Context:** This project is for the "BUP CSE Fest 2026 – Preliminary Round."
+*   **Team:** Team Huntrix
+*   **Context:** BUP CSE Fest 2026
+*   **Core Functionality:** The system is designed to take operator notes as input and output optimal energy schedules, likely using a Large Language Model (LLM) to process operational constraints or requirements and convert them into efficient energy usage plans.
 
-## frame-01-at-16s.png
-This is a classic **energy management optimization problem**. To solve this effectively for your "smart campus," you need to build a model that balances three variables (Grid, Solar, Battery) across a 24-hour cycle while adhering to specific constraints.
+## frame-01-at-18s.png
+Based on the benchmark results provided in the image, here is an analysis of the "GridWise" system's performance:
 
-Here is a breakdown of how you should approach this:
+### Performance Summary
+The benchmark compares two scenarios, both returning a "200 OK" status for every request:
 
-### 1. The Core Constraints (The "Rules")
-*   **Solar:** This is your "free" generation. Because you have a note that output drops to 20% between 1 PM and 3 PM, you must adjust your solar generation curve accordingly. Any solar generated beyond your campus demand is "lost" unless it is stored in the battery.
-*   **Battery:** This is your buffer.
-    *   **Physics constraint:** You cannot create energy, only shift it. 
-    *   **Boundary constraint:** The state-of-charge (SoC) at the end of hour 24 must equal the SoC at the beginning of hour 1 (the prompt says, "Must end the day where it started").
-*   **Grid:** This is your variable cost. Since the price changes hourly, you want to shift your battery usage to
+**1. Cached Performance ("10x cached")**
+*   **Context:** These requests use identical bodies, triggering interpretation cache hits.
+*   **Latency:** After an initial cold-start latency of 2106 ms, subsequent requests are extremely fast, ranging between **158 ms and 184 ms**.
+*   **Median/Mean:** The median latency is **172 ms**, demonstrating high efficiency when the cache is utilized.
 
-## frame-02-at-45s.png
-This architecture diagram outlines a six-stage pipeline designed to combine Large Language Models (LLMs) with deterministic optimization (specifically Linear Programming) while minimizing the risks of LLM hallucinations.
+**2. Cold Performance ("10x cold")**
+*   **Context:** These requests use unique notes, forcing the system to execute the full Large Language Model (LLM) processing path.
+*   **Latency:** Latencies consistently fall in the **1.4s to 1.7s range** (1423 ms – 1714 ms).
+*   **Median:** The median latency is approximately **1.7s**,
 
-### The Six Stages Explained:
+## frame-02-at-60s.png
+This image outlines the architecture of a system designed to process energy-related requests through a multi-stage pipeline, likely for optimizing battery or grid management.
 
-1.  **Validate request:** Ensures the incoming query is structured correctly and is appropriate for the system to handle before processing begins.
-2.  **LLM interprets notes:** A language model parses unstructured user input or notes to extract intent and parameters.
-3.  **Guardrails check:** Before the information is used in calculation, it passes through "deterministic guardrails"—a programmatic filter that checks the LLM's output against predefined rules to ensure it is safe, logical, and within expected boundaries.
-4.  **Fold constraints:** The interpreted data and checked guardrails are converted into mathematical constraints (the rules the system must follow).
-5.  **Solve LP:** The system uses a solver to perform **Linear Programming (LP)**. This is the core "math" engine, which finds the mathematically optimal solution based on the constraints provided in the previous step.
-6.  **Verify plan:** Before the result is sent back to the user, the proposed plan is audited to
+### The Six Stages
+The workflow is structured into a linear sequence of six steps:
 
-## frame-03-at-65s.png
-This image illustrates a **system architecture for converting natural language inputs into structured data** (often referred to as "Language in, Structure out"). It describes a reliable pipeline for parsing human-written operator notes into machine-readable directives.
+1.  **Validate request:** Ensures the initial request is properly formatted and legitimate.
+2.  **LLM interprets notes:** Uses a Large Language Model to translate natural language notes or instructions into a structured format.
+3.  **Guardrails check:** Applies strict logical filters to ensure the interpreted data is safe and feasible.
+4.  **Fold constraints:** Aggregates the various constraints into a format suitable for mathematical optimization.
+5.  **Solve LP:** Executes a Linear Programming (LP) solver to find the optimal energy schedule.
+6.  **Verify plan:** Confirms that the resulting schedule adheres to all operational rules.
 
-Here is a breakdown of the key components shown:
+### Detailed Operational Logic
+The image provides specific insights into the two most critical stages:
 
-### 1. The Core Process
-*   **Input:** An unstructured "Operator note," such as: *"Solar output will drop to about 20% from 1 PM to 3 PM."*
-*   **Transformation:** An AI model parses this text and converts it into a structured JSON-like format:
-    `{"directive_type": "solar_reduction", "hours": [13, 14], "factor": 0.2}`
-    *   This shows the model correctly maps "1 PM to 3 PM" to the 24-hour clock `[13, 14]` and translates "20%" into the numerical factor `0.2`.
+*   **Guardrails Reject (Stage 03):** This acts as a quality control filter. It blocks requests that contain:
+    *   Unknown directive types.
+    *   Unsorted or out-of-
 
-### 2. The Guardrails (Validation)
-The system ensures reliability by running the model's output through a strict validation layer (guardrails). These rules ensure:
-*   **
+## frame-03-at-92s.png
+This image describes an engineering strategy for building AI applications with zero costs by leveraging free tiers of various AI services.
 
-## frame-04-at-135s.png
-This image displays a "LIVE DEMO" of an API call to an energy optimization service.
+Here is a breakdown of the "Squeezing every free tier" approach:
 
-Here is a breakdown of the information shown:
+### The Architecture: A Multi-Stage Race
+The core concept is to trigger a "race" between multiple AI models and providers to get the fastest or most reliable response without paying.
 
-*   **The Technical Execution:** The terminal snippet shows a `curl` command sending a JSON payload (`sample-01.json`) to an API endpoint hosted on Cloudflare Workers (`gridwise-llm.seyamalam41.workers.dev/optimize-energy`).
-*   **The Response:** The server returned an `HTTP 200` success code in `1.5s`. The response JSON provides an array under `directive_interpretation` containing:
-    *   `"solar_reduction"` at hours 12 and 13 with a factor of `0.25`.
-    *   A `"no_op"` (no operation) directive.
-    *   A calculated `"total_cost_bdt"` of `38365.00`, identified as the "exact optimal cost."
-*   **The Context:** The text below the code block explains the real-world application: the system successfully interpreted notes regarding "panel washing" and a "reserve," generated an optimization plan
+1.  **Stage 1: Immediate Start ($t=0$ ms)**
+    *   **AI Gateway:** Sends the request to seven different free AI models simultaneously via the Vercel AI SDK.
+    *   **Gemini:** Simultaneously queries three Gemini variants (3.8, 3.7, and 3.5-lite) with specific instructions to prioritize data extraction over long-form writing.
+2.  **Stage 2: The Backup ($t=+2.5$ s)**
+    *   **OpenRouter:** A "hedged fallback" request is sent after a 2.5-second delay. If the initial fast models haven't provided a valid answer, OpenRouter serves as a secondary source.
+3.  **The "Winner" Logic:**
 
-## frame-05-at-164.9s.png
-This image is a concluding screen from a software project presentation or documentation page for a project called **"GridWise LLM."**
+## frame-04-at-110s.png
+Based on the image provided, here is a breakdown of the API endpoint details:
 
-Key takeaways from the text:
+### **Endpoint: `/optimize-energy`**
+*   **Method:** POST
+*   **Description:** "Interpret operator notes and optimize the 24-hour schedule."
 
-*   **Project Name:** GridWise LLM.
-*   **Availability/Deployment:** 
-    *   The project is live on **Cloudflare Workers** (accessible at `gridwise-llm.seyamalam41.workers.dev`).
-    *   There is a containerized version available on **Docker Hub** (`docker.io/touhidulalam41/gridwise-llm:1.0.0`) as a fallback or alternative deployment method.
-*   **Documentation/Reproducibility:** The message emphasizes that the project is "reproducible" and that all necessary instructions can be found in the project's **README** file.
+### **Request Body Structure**
+The request expects a JSON object containing the following parameters:
 
-If you are looking for more information, you would likely need to visit the project's GitHub repository (implied by the mention of a README), where the developer ("seyamalam41" or "touhidulalam41") maintains the source code and installation instructions.
+1.  **`battery` (Object):** Required. Contains energy storage constraints:
+    *   `capacity_kwh`
+    *   `initial_energy_kwh`
+    *   `min_energy_kwh`
+    *   `max_charge_kwh_per_hour`
+    *   `max_discharge_kwh_per_hour`
+2.  **`hours` (Array of Objects):** Required. An array of 24 objects (one for each hour), each containing:
+    *   `hour`
+    *   `demand_kwh`
+    *   `solar_kwh`
+    *   `tariff_bdt_per_kwh`
+3.  **`operator_notes` (Array of Strings
+
+## frame-05-at-150s.png
+The image displays a status report or system output summary, likely from a software evaluation or performance benchmarking tool. Here is a breakdown of the information presented:
+
+### **Top Section (Evaluation Metrics)**
+*   **Public Cases:** 10 out of 10 passed, with a "cost ratio" of 1.0000 per case.
+*   **Interpretation:** Successfully matched the "ground truth" on every note.
+*   **Plan Validation:** The generated plan was confirmed to be valid under both "our" (the system's) and the "judge's" directives.
+*   **Live Requests:** 20 out of 20 passed.
+*   **Latency Performance:**
+    *   **Cold:** ~2 seconds (the time taken for a request when the system is not primed/cached).
+    *   **Cached:** ~172 milliseconds (the speed once the system has stored results).
+*   **Final Summary:** "10 passed, 0 failed."
+
+### **Bottom Section (Narrative Summary)**
+The text below reiterates the findings in a sentence format: 
+"Results. Ten public cases, ten
+
+## frame-06-at-160.05s.png
+Based on the image provided, here are the details about the project:
+
+*   **Project Name:** GridWise LLM
+*   **Team Name:** Team Huntrix
+*   **Deployment/Code Links:**
+    *   **Cloudflare Workers:** [gridwise-llm.seyamalam41.workers.dev](https://gridwise-llm.seyamalam41.workers.dev)
+    *   **Docker Hub:** [docker.io/touhidulalam41/gridwise-llm](https://hub.docker.com/r/touhidulalam41/gridwise-llm)
+*   **Technologies Used:** Cloudflare Workers, Docker.
+*   **Accessibility:** The project is noted as being "everything reproducible from the README."
