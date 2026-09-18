@@ -8,39 +8,83 @@ validates the interpretation deterministically, and returns a valid, cost-optima
 
 ## Architecture
 
+### End-to-end pipeline
+
+```mermaid
+flowchart TD
+    J["Judge harness / curl"] -->|"POST /optimize-energy"| A["Hono API<br/>(Cloudflare Worker / Node)"]
+    A --> S1["<b>1. Request validation</b> (zod)<br/>400 malformed · 400 structural · 422 semantic"]
+    S1 --> Q{"notes + battery capacity<br/>in interpretation cache?"}
+    Q -->|"hit (~25 ms)"| APPLY
+    Q -->|miss| RACE
+    subgraph RACE["2. LLM interpretation — models raced in parallel"]
+        M1["ling-3.0-flash-sante:free"]
+        M2["openrouter/free"]
+        M1 & M2 -->|"first response that passes<br/>guardrails wins"| G
+    end
+    G["<b>3. Deterministic guardrails</b><br/>directive-type enum · 1:1 note mapping<br/>hours unique/ascending 0-23 · factor ∈ [0,1]<br/>reserve ≤ capacity · applies semantics"]
+    G -->|"invalid output"| FB["re-prompt same model<br/>with exact validation error"]
+    FB -.->|"one feedback round"| RACE
+    G -->|"valid directives"| CACHE[("in-isolate interpretation cache<br/>key = notes + battery capacity")]
+    CACHE --> APPLY["<b>4. Fold directives into constraints</b><br/>effective solar · raised reserves ·<br/>charge/discharge windows · grid caps"]
+    APPLY --> LP["<b>5. LP optimizer</b> (javascript-lp-solver)<br/>min Σ grid·tariff — ~120 vars, ~1-3 ms<br/>energy balance · battery dynamics/bounds/rates<br/>E₂₄ = E₀ neutrality"]
+    LP --> VER["<b>6. Replay verifier</b> (judge mirror)<br/>replays the plan against every rule<br/>before it is allowed out"]
+    VER -->|"any violation"| ERR["controlled 500<br/>(never a broken schedule)"]
+    VER -->|"valid"| RESP["<b>7. JSON response</b><br/>directive_interpretation + hourly_plan<br/>+ totals recomputed from the plan"]
 ```
-POST /optimize-energy
-  ├─ 1. Zod request validation .................. 400 on malformed input, never a crash
-  ├─ 2. LLM interpretation (OpenRouter) ......... one call for ALL notes, per model;
-  │     the model chain is RACED in parallel, first guardrail-passing response wins,
-  │     guardrail failures re-prompt the model with the exact validation error
-  ├─ 3. Deterministic guardrails ................ directive type enum, 1:1 note mapping,
-  │     hours unique/ascending/0-23, factor ∈ [0,1], reserve ≤ capacity, applies semantics
-  ├─ 4. LP optimizer (javascript-lp-solver) ..... min Σ grid·tariff s.t. energy balance,
-  │     effective solar, battery dynamics/bounds/rate limits, directive windows, grid caps,
-  │     end-of-day battery neutrality (E_final = E_initial)
-  ├─ 5. Replay verifier (judge mirror) .......... re-checks every rule before responding
-  └─ 6. Response ................................ interpretation + 24h plan + recomputed totals
-```
 
-**Why this shape:** the LLM is treated as untrusted. It never touches the math directly —
-it emits structured directives that deterministic code validates, applies, and verifies.
-If the LLM misbehaves, the service retries, falls back across a model chain, or returns a
-controlled error. It never invents directives and never crashes.
+### Why LLM _and_ deterministic code? (the point of each)
 
-| Layer                                       | Technology                                                                                   |
-| ------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| HTTP server                                 | Hono (Cloudflare Workers / Node via `@hono/node-server`)                                     |
-| LLM                                         | OpenRouter via Vercel AI SDK (`generateObject`, structured JSON)                             |
-| Models (free tier chain, raced in parallel) | `inclusionai/ling-3.0-flash-sante:free` ⚡ `openrouter/free` — first validated response wins |
-| Guardrails                                  | Hand-written deterministic validators (zod + rule checks)                                    |
-| Optimizer                                   | `javascript-lp-solver` — exact LP Simplex, ~120 vars, ~1-3 ms                                |
-| Verification                                | Deterministic schedule replay mirroring the judge's checks                                   |
-| Deployment                                  | Cloudflare Workers (`wrangler deploy`), Docker fallback image                                |
+The Problem Statement mandates exactly this split: _"Human notes are not directly
+trusted as math. They are first converted to a fixed structured format, checked by
+guardrails, and only then applied to the optimization model."_
 
-The LLM is strictly inside the operator-note interpretation path — its structured output
-becomes the optimizer's constraints. The optimizer, guardrails, and verifier are pure
-deterministic TypeScript (no LLM in the math path).
+- **The LLM does what deterministic code cannot**: understand free-form language.
+  _"PV production will drop to about 20% between 13:00 and 15:00"_ and _"Expect an
+  80% reduction during the 1-3 PM maintenance window"_ are the same directive in
+  different words — hidden cases are paraphrases by design, and hard-coded phrase
+  matching is explicitly non-compliant. This is why the LLM is **mandatory** in the
+  interpretation path (it earns the 25 interpretation points).
+- **Deterministic code does what the LLM cannot**: exact math. Guardrails, the LP
+  optimizer, and the replay verifier never guess — they guarantee the returned
+  schedule obeys every energy/battery/directive rule the judge independently replays
+  (the other 75 points). The LLM never touches the math; it only emits structured
+  directives that become optimizer constraints.
+
+So: the **interpretation is non-deterministic** (that's the LLM earning its keep on
+language), the **schedule is deterministic given an interpretation** (that's what
+makes the judge's replay meaningful), and **the LLM requirement is satisfied in the
+path that matters** — not just for cosmetic text.
+
+### Caching
+
+| Layer                | Behavior                                                                                                                                                                                                                                                                |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Interpretation cache | In-isolate `Map`, key = FNV-hash of `battery.capacity_kwh + operator_notes`. Capacity is part of the key because percentage-based reserves (_"keep 50% of capacity"_) convert through it — identical notes under a different capacity are a _different_ interpretation. |
+| Effect               | Repeat scenarios skip the LLM entirely: **~25 ms** responses on a warm isolate (measured 21-37 ms vs 2-8 s cold).                                                                                                                                                       |
+| Scope                | Per Worker isolate (best-effort, no cross-isolate sharing); no persistence, no TTL — entries are tiny (a few directives).                                                                                                                                               |
+
+### Failure handling (safe by construction)
+
+| Failure                                 | Behavior                                                     |
+| --------------------------------------- | ------------------------------------------------------------ |
+| Malformed JSON / bad schema             | `400` / `400` / `422` with details, never a crash            |
+| LLM emits invalid structure             | Guardrails reject → model re-prompted with the exact error   |
+| LLM/provider down or slow               | Other raced model answers; total worst case ~20 s (30 s cap) |
+| Every LLM attempt fails                 | Controlled `500`, no invented directives                     |
+| LP infeasible / self-verification fails | Controlled `500` — a wrong schedule is never returned        |
+
+### Stack
+
+| Layer                     | Technology                                                               |
+| ------------------------- | ------------------------------------------------------------------------ |
+| HTTP server               | Hono (Cloudflare Workers / Node via `@hono/node-server`)                 |
+| LLM                       | OpenRouter via Vercel AI SDK (`generateText` + tolerant JSON extraction) |
+| Models (free tier, raced) | `inclusionai/ling-3.0-flash-sante:free` ⚡ `openrouter/free`             |
+| Guardrails                | Hand-written deterministic validators (zod + rule checks)                |
+| Optimizer                 | `javascript-lp-solver` — exact LP Simplex, ~120 vars, ~1-3 ms            |
+| Verification              | Deterministic schedule replay mirroring the judge's checks               |
+| Deployment                | Cloudflare Workers (`wrangler deploy`), Docker fallback image            |
 
 ## API
 
