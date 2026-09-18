@@ -56,3 +56,6 @@ coverage
 .cache
 tmp
 temp
+
+# video production (submitted via YouTube, not the repo)
+video/
