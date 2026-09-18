@@ -1,0 +1,308 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1920, height=1080" />
+    <script src="./assets/gsap.min.js"></script>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body {
+        width: 1920px; height: 1080px; overflow: hidden; background: #0a0e0b;
+      }
+      #root {
+        width: 100%; height: 100%; position: relative;
+        font-family: ui-sans-serif, system-ui, sans-serif; color: #ecefef;
+        background:
+          radial-gradient(1200px 700px at 85% -10%, rgba(52, 211, 153, 0.10), transparent 60%),
+          radial-gradient(900px 600px at 5% 110%, rgba(96, 165, 250, 0.08), transparent 55%),
+          #0a0e0b;
+      }
+      .scene { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 90px 120px 200px; }
+      .kicker { font-family: ui-monospace, monospace; font-size: 22px; letter-spacing: 0.28em; text-transform: uppercase; color: #34d399; margin-bottom: 18px; }
+      h1.title { font-size: 118px; font-weight: 700; letter-spacing: -0.03em; line-height: 1.02; }
+      h2.heading { font-size: 62px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.1; text-align: center; }
+      .muted { color: #9aa3a0; }
+      .accent { color: #34d399; }
+      .amber { color: #fbbf24; }
+      .blue { color: #60a5fa; }
+      .rule { width: 180px; height: 5px; border-radius: 3px; background: #34d399; margin-top: 34px; }
+      .row { display: flex; gap: 28px; align-items: stretch; justify-content: center; }
+      .card { background: #10160f; border: 1px solid #22352a; border-radius: 20px; padding: 30px 34px; }
+      .card h3 { font-size: 30px; font-weight: 650; margin-bottom: 10px; }
+      .card p { font-size: 24px; color: #9aa3a0; line-height: 1.45; }
+      .chip { font-family: ui-monospace, monospace; font-size: 24px; background: #10160f; border: 1px solid #22352a; border-radius: 12px; padding: 14px 22px; color: #d7dedb; }
+      .mono { font-family: ui-monospace, monospace; }
+      /* subtitle bar */
+      .sub {
+        position: absolute; left: 0; right: 0; margin-left: auto; margin-right: auto; width: fit-content;
+        bottom: 52px; max-width: 1560px; background: rgba(5, 8, 6, 0.82); border: 1px solid rgba(255,255,255,0.09);
+        border-radius: 16px; padding: 20px 36px; font-size: 33px; line-height: 1.42; text-align: center; color: #f2f4f3;
+        box-shadow: 0 12px 40px rgba(0,0,0,0.45);
+      }
+      .sub b { color: #34d399; font-weight: 650; }
+      /* pipeline */
+      .pipe { display: flex; align-items: center; gap: 18px; margin-top: 40px; }
+      .stage { width: 240px; background: #10160f; border: 1px solid #22352a; border-radius: 18px; padding: 24px 20px; text-align: center; }
+      .stage .n { font-family: ui-monospace, monospace; font-size: 20px; color: #34d399; margin-bottom: 10px; }
+      .stage .t { font-size: 26px; font-weight: 650; line-height: 1.2; }
+      .arrow { font-size: 34px; color: #4e6457; }
+      /* terminal */
+      .term { width: 1280px; background: #0d1117; border: 1px solid #263041; border-radius: 16px; overflow: hidden; text-align: left; box-shadow: 0 24px 80px rgba(0,0,0,0.5); }
+      .term-bar { display: flex; gap: 10px; padding: 14px 18px; background: #161c26; border-bottom: 1px solid #263041; }
+      .dot { width: 14px; height: 14px; border-radius: 50%; }
+      .term-body { padding: 26px 30px; font-family: ui-monospace, monospace; font-size: 24px; line-height: 1.55; color: #c9d4e3; white-space: pre-wrap; }
+      .t-green { color: #56d364; } .t-blue { color: #79c0ff; } .t-amber { color: #e3b341; } .t-dim { color: #6e7681; }
+      /* stat cards */
+      .stat { width: 320px; background: #10160f; border: 1px solid #22352a; border-radius: 20px; padding: 34px 30px; text-align: center; }
+      .stat .v { font-size: 72px; font-weight: 750; letter-spacing: -0.02em; }
+      .stat .k { font-size: 24px; color: #9aa3a0; margin-top: 8px; line-height: 1.35; }
+      /* checklist */
+      .checklist { display: flex; flex-direction: column; gap: 16px; margin-top: 34px; }
+      .check { display: flex; align-items: center; gap: 18px; font-size: 30px; color: #d7dedb; }
+      .check .box { width: 34px; height: 34px; border-radius: 9px; background: rgba(52,211,153,0.14); border: 1px solid #34d399; color: #34d399; display: flex; align-items: center; justify-content: center; font-size: 22px; }
+      /* harness */
+      .passline { font-family: ui-monospace, monospace; font-size: 25px; line-height: 1.5; color: #c9d4e3; }
+      .passline b { color: #56d364; font-weight: 600; }
+      .banner { margin-top: 26px; font-size: 40px; font-weight: 700; color: #34d399; }
+      /* demo result chips */
+      .result-row { display: flex; gap: 22px; margin-top: 30px; }
+    </style>
+  </head>
+  <body>
+    <div id="root" data-composition-id="main" data-start="0" data-duration="170" data-width="1920" data-height="1080">
+
+      <!-- S1 · Title · 0-8 -->
+      <section class="clip scene" id="s1" data-start="0" data-duration="8">
+        <div class="inner" style="display:flex;flex-direction:column;align-items:center;">
+          <div class="chip" style="margin-bottom:42px;">BUP CSE Fest 2026 · Preliminary Round</div>
+          <h1 class="title">GridWise <span class="accent">LLM</span></h1>
+          <div class="rule"></div>
+          <p class="muted" style="font-size:34px;margin-top:34px;">Smart Campus Energy Optimization</p>
+        </div>
+        <div class="sub">GridWise LLM. One API that turns plain operator notes into a valid, low cost, 24 hour energy schedule.</div>
+      </section>
+
+      <!-- S2 · Problem · 8-23 -->
+      <section class="clip scene" id="s2" data-start="8" data-duration="15">
+        <div class="kicker">The problem</div>
+        <h2 class="heading">One campus, three power sources, 24 hours</h2>
+        <div class="row" style="margin-top:52px;">
+          <div class="card c2" style="width:380px;"><h3>Grid import</h3><p>Electricity bought from the grid. Price changes every hour.</p></div>
+          <div class="card c2" style="width:380px;"><h3 class="amber">Rooftop solar</h3><p>Free energy when the sun is up. Unused solar is lost.</p></div>
+          <div class="card c2" style="width:380px;"><h3 class="blue">Battery</h3><p>Moves energy between hours. Must end the day where it started.</p></div>
+        </div>
+        <div class="chip c2" style="margin-top:44px;color:#f2f4f3;">"Solar output will drop to about 20% from 1 PM to 3 PM."</div>
+        <div class="sub">A smart campus runs on grid power, rooftop solar, and a battery. Demand, sunlight, and price change hourly. Operators send short notes. <b>Our job: understand the notes, respect the physics, minimize the cost.</b></div>
+      </section>
+
+      <!-- S3 · API · 23-36 -->
+      <section class="clip scene" id="s3" data-start="23" data-duration="13">
+        <div class="kicker">The contract</div>
+        <h2 class="heading">Two endpoints</h2>
+        <div class="row" style="margin-top:54px;">
+          <div class="card c3" style="width:520px;"><h3 class="mono accent">GET /health</h3><p class="mono" style="color:#d7dedb;">{"status":"ok"}</p></div>
+          <div class="card c3" style="width:680px;"><h3 class="mono accent">POST /optimize-energy</h3><p>Scenario + operator notes in, interpretation + 24 hour plan out.</p></div>
+        </div>
+        <div class="sub">The contract is two endpoints. Health returns status ok. Optimize-energy takes the scenario and notes, and returns the interpretation plus a full 24 hour plan.</div>
+      </section>
+
+      <!-- S4 · Pipeline · 36-54 -->
+      <section class="clip scene" id="s4" data-start="36" data-duration="18">
+        <div class="kicker">Architecture</div>
+        <h2 class="heading">LLM to guardrails to optimizer</h2>
+        <div class="pipe">
+          <div class="stage st"><div class="n">01</div><div class="t">Validate request</div></div>
+          <div class="arrow">→</div>
+          <div class="stage st"><div class="n">02</div><div class="t">LLM interprets notes</div></div>
+          <div class="arrow">→</div>
+          <div class="stage st"><div class="n">03</div><div class="t">Guardrails check</div></div>
+          <div class="arrow">→</div>
+          <div class="stage st"><div class="n">04</div><div class="t">Fold constraints</div></div>
+          <div class="arrow">→</div>
+          <div class="stage st"><div class="n">05</div><div class="t">Solve LP</div></div>
+          <div class="arrow">→</div>
+          <div class="stage st"><div class="n">06</div><div class="t">Verify plan</div></div>
+        </div>
+        <p class="muted st" style="font-size:27px;margin-top:48px;max-width:1200px;text-align:center;">The model never touches the math. Deterministic code validates, applies, and verifies everything it says.</p>
+        <div class="sub">The pipeline has six stages. Validate the request. Interpret the notes with a language model. Check the output with deterministic guardrails. Fold the directives into constraints. Solve a linear program. Then verify the plan before responding.</div>
+      </section>
+
+      <!-- S5 · LLM + guardrails · 54-76 -->
+      <section class="clip scene" id="s5" data-start="54" data-duration="22">
+        <div class="kicker">Interpretation</div>
+        <h2 class="heading">Language in, structure out</h2>
+        <div class="row" style="margin-top:46px;align-items:center;">
+          <div class="card c5" style="width:520px;"><h3 style="font-size:26px;">Operator note</h3><p class="mono" style="font-size:24px;color:#e8b4f5;">"Solar output will drop to about 20% from 1 PM to 3 PM."</p></div>
+          <div class="arrow c5" style="font-size:44px;">→</div>
+          <div class="card c5" style="width:560px;"><h3 style="font-size:26px;" class="accent">Directive</h3><p class="mono" style="font-size:24px;">{ "directive_type": <span class="accent">"solar_reduction"</span>, "hours": <span class="amber">[13, 14]</span>, "factor": <span class="amber">0.2</span> }</p></div>
+        </div>
+        <div class="checklist" style="margin-top:40px;">
+          <div class="check g5"><span class="box">✓</span>Only the six supported directive types</div>
+          <div class="check g5"><span class="box">✓</span>Hours are unique, sorted, 0 to 23</div>
+          <div class="check g5"><span class="box">✓</span>Factors and reserves inside valid ranges</div>
+          <div class="check g5"><span class="box">✓</span>Invalid output re-prompts the model with the exact error</div>
+        </div>
+        <div class="sub">The model only handles language. A note like "solar drops to 20 percent between 1 and 3 PM" becomes a structured directive with hours and a factor. Every output passes guardrails: known types, sorted hours, valid numbers. <b>Fail, and the model is re-prompted with the exact error.</b></div>
+      </section>
+
+      <!-- S6 · Model race + cache · 76-92 -->
+      <section class="clip scene" id="s6" data-start="76" data-duration="16">
+        <div class="kicker">Reliability</div>
+        <h2 class="heading">A hedged model chain</h2>
+        <div class="row" style="margin-top:50px;">
+          <div class="card c6" style="width:400px;"><h3 class="accent">Gemini ×3</h3><p>3.8-flash, 3.7-flash, 3.5-flash-lite fire immediately, thinking disabled.</p></div>
+          <div class="card c6" style="width:400px;"><h3 class="blue">OpenRouter ×2</h3><p>Free fallbacks join 2.5 seconds later as a hedge.</p></div>
+          <div class="card c6" style="width:400px;"><h3 class="amber">First valid wins</h3><p>The first response passing guardrails is used. The rest are ignored.</p></div>
+        </div>
+        <div class="chip c6" style="margin-top:46px;">Repeat scenario? Cache hit — about <span class="accent">0.5 s</span>, no model call at all.</div>
+        <div class="sub">Three Gemini models answer in parallel. OpenRouter follows two and a half seconds later as a hedge. The first valid response wins. Repeat scenarios skip the model entirely through a per-isolate cache.</div>
+      </section>
+
+      <!-- S7 · Optimizer · 92-110 -->
+      <section class="clip scene" id="s7" data-start="92" data-duration="18">
+        <div class="kicker">Optimization</div>
+        <h2 class="heading">An exact linear program</h2>
+        <div class="row" style="margin-top:48px;">
+          <div class="stat c7"><div class="v accent">120</div><div class="k">variables over 24 hours</div></div>
+          <div class="stat c7"><div class="v amber">2 ms</div><div class="k">solve time per scenario</div></div>
+          <div class="stat c7"><div class="v blue">1.0000</div><div class="k">cost ratio vs reference, all 10 cases</div></div>
+        </div>
+        <div class="row c7" style="margin-top:44px;flex-wrap:wrap;max-width:1400px;gap:14px;">
+          <div class="chip">energy balance</div><div class="chip">battery dynamics</div><div class="chip">rate limits</div><div class="chip">solar caps</div><div class="chip">directive windows</div><div class="chip">end of day neutrality</div>
+        </div>
+        <div class="sub">The optimizer is exact. A 120-variable linear program minimizes grid cost under every rule. It solves in 2 milliseconds and matches the reference optimum on all ten public cases.</div>
+      </section>
+
+      <!-- S8 · Verifier · 110-126 -->
+      <section class="clip scene" id="s8" data-start="110" data-duration="16">
+        <div class="kicker">Verification</div>
+        <h2 class="heading">The judge mirror</h2>
+        <div class="checklist" style="margin-top:44px;">
+          <div class="check g8"><span class="box">✓</span>Energy balance holds every hour</div>
+          <div class="check g8"><span class="box">✓</span>Battery bounds, transitions, and rate limits</div>
+          <div class="check g8"><span class="box">✓</span>Solar never exceeds effective availability</div>
+          <div class="check g8"><span class="box">✓</span>Every directive honored in the plan</div>
+          <div class="check g8"><span class="box">✓</span>Final battery energy equals the start</div>
+          <div class="check g8"><span class="box">✓</span>Reported totals recomputed from the plan</div>
+        </div>
+        <div class="sub">Nothing leaves unchecked. A replay verifier mirrors the judge. It replays the plan hour by hour against every directive and every rule. The totals in the response are recomputed from the plan itself.</div>
+      </section>
+
+      <!-- S9 · Live demo · 126-144 -->
+      <section class="clip scene" id="s9" data-start="126" data-duration="18">
+        <div class="kicker">Live demo</div>
+        <div class="term" style="margin-top:24px;">
+          <div class="term-bar"><div class="dot" style="background:#ff5f57"></div><div class="dot" style="background:#febc2e"></div><div class="dot" style="background:#28c840"></div></div>
+          <div class="term-body"><span class="t-dim">$</span> curl -X POST https://gridwise-llm.seyamalam41.workers.dev/optimize-energy \
+    -H 'content-type: application/json' --data @sample-01.json
+
+<span class="t-dim">← HTTP 200 in 1.5s</span>
+{
+  <span class="t-blue">"directive_interpretation"</span>: [
+    { <span class="t-blue">"directive_type"</span>: <span class="t-green">"solar_reduction"</span>, <span class="t-blue">"hours"</span>: [12, 13], <span class="t-blue">"factor"</span>: 0.25 },
+    { <span class="t-blue">"directive_type"</span>: <span class="t-green">"no_op"</span> }
+  ],
+  <span class="t-blue">"total_cost_bdt"</span>: <span class="t-amber">38365.00</span>  <span class="t-dim">// exact optimal cost</span>
+}</div>
+        </div>
+        <div class="sub">Here is a live call against the deployed worker. The notes describe panel washing and a reserve. Both are interpreted correctly, and the plan comes back at the exact optimal cost in about one and a half seconds.</div>
+      </section>
+
+      <!-- S10 · Harness · 144-158 -->
+      <section class="clip scene" id="s10" data-start="144" data-duration="14">
+        <div class="kicker">Judge mirror results</div>
+        <div class="card" style="margin-top:20px;padding:34px 46px;">
+          <div class="passline"><b>PASS</b> SAMPLE-01 … SAMPLE-10 &nbsp;·&nbsp; cost ratio 1.0000 each</div>
+          <div class="passline" style="margin-top:10px;"><b>PASS</b> interpretation matches ground truth on every note</div>
+          <div class="passline"><b>PASS</b> plan valid under our and judge directives</div>
+          <div class="banner">10 passed, 0 failed</div>
+        </div>
+        <div class="sub">The harness runs all ten public cases against the live API. Ten passed, zero failed, with a cost ratio of exactly one on every case.</div>
+      </section>
+
+      <!-- S11 · Close · 158-170 -->
+      <section class="clip scene" id="s11" data-start="158" data-duration="12">
+        <div class="inner" style="display:flex;flex-direction:column;align-items:center;">
+          <h2 class="heading">Live, reproducible, documented</h2>
+          <div class="row" style="margin-top:50px;">
+            <div class="chip c11 mono">gridwise-llm.seyamalam41.workers.dev</div>
+            <div class="chip c11 mono">docker.io/touhidulalam41/gridwise-llm:1.0.0</div>
+          </div>
+          <div class="rule" style="margin-top:54px;"></div>
+          <p class="muted c11" style="font-size:32px;margin-top:36px;">GridWise LLM — thank you for watching</p>
+        </div>
+        <div class="sub">Deployed on Cloudflare Workers. Docker fallback on Docker Hub. Everything reproducible from the README. Thank you for watching.</div>
+      </section>
+    </div>
+
+    <script>
+      const tl = gsap.timeline({ paused: true });
+
+      function enter(sel, at, opts = {}) {
+        tl.fromTo(sel, { opacity: 0, y: 26 }, { opacity: 1, y: 0, duration: 0.55, ease: "power2.out", ...opts }, at);
+      }
+
+      // S1 · 0-8
+      tl.fromTo("#s1 .inner", { opacity: 0, scale: 0.96 }, { opacity: 1, scale: 1, duration: 0.8, ease: "power2.out" }, 0.3);
+      tl.fromTo("#s1 .rule", { width: 0 }, { width: 180, duration: 0.6, ease: "power2.out" }, 0.9);
+      tl.fromTo("#s1 .sub", { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.5 }, 1.1);
+
+      // S2 · 8-23
+      enter("#s2 .kicker", 8.2); enter("#s2 .heading", 8.35);
+      tl.fromTo("#s2 .c2", { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 0.5, stagger: 0.14, ease: "power2.out" }, 8.9);
+      tl.fromTo("#s2 .sub", { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.5 }, 9.2);
+
+      // S3 · 23-36
+      enter("#s3 .kicker", 23.2); enter("#s3 .heading", 23.35);
+      tl.fromTo("#s3 .c3", { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 0.5, stagger: 0.18, ease: "power2.out" }, 23.9);
+      tl.fromTo("#s3 .sub", { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.5 }, 24.2);
+
+      // S4 · 36-54
+      enter("#s4 .kicker", 36.2); enter("#s4 .heading", 36.35);
+      tl.fromTo("#s4 .stage", { opacity: 0, y: 26 }, { opacity: 1, y: 0, duration: 0.4, stagger: 0.13, ease: "power2.out" }, 36.9);
+      tl.fromTo("#s4 .arrow", { opacity: 0 }, { opacity: 1, duration: 0.3, stagger: 0.13 }, 37.2);
+      enter("#s4 p.st", 38.6);
+      tl.fromTo("#s4 .sub", { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.5 }, 37.0);
+
+      // S5 · 54-76
+      enter("#s5 .kicker", 54.2); enter("#s5 .heading", 54.35);
+      tl.fromTo("#s5 .c5", { opacity: 0, y: 26 }, { opacity: 1, y: 0, duration: 0.5, stagger: 0.16, ease: "power2.out" }, 55.0);
+      tl.fromTo("#s5 .g5", { opacity: 0, x: -22 }, { opacity: 1, x: 0, duration: 0.4, stagger: 0.16, ease: "power2.out" }, 56.2);
+      tl.fromTo("#s5 .sub", { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.5 }, 55.2);
+
+      // S6 · 76-92
+      enter("#s6 .kicker", 76.2); enter("#s6 .heading", 76.35);
+      tl.fromTo("#s6 .c6", { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 0.5, stagger: 0.16, ease: "power2.out" }, 76.9);
+      tl.fromTo("#s6 .sub", { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.5 }, 77.2);
+
+      // S7 · 92-110
+      enter("#s7 .kicker", 92.2); enter("#s7 .heading", 92.35);
+      tl.fromTo("#s7 .c7", { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 0.5, stagger: 0.15, ease: "power2.out" }, 92.9);
+      tl.fromTo("#s7 .sub", { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.5 }, 93.2);
+
+      // S8 · 110-126
+      enter("#s8 .kicker", 110.2); enter("#s8 .heading", 110.35);
+      tl.fromTo("#s8 .g8", { opacity: 0, x: -22 }, { opacity: 1, x: 0, duration: 0.4, stagger: 0.14, ease: "power2.out" }, 111.0);
+      tl.fromTo("#s8 .sub", { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.5 }, 111.2);
+
+      // S9 · 126-144
+      enter("#s9 .kicker", 126.2);
+      tl.fromTo("#s9 .term", { opacity: 0, y: 34 }, { opacity: 1, y: 0, duration: 0.6, ease: "power2.out" }, 126.7);
+      tl.fromTo("#s9 .sub", { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.5 }, 127.2);
+
+      // S10 · 144-158
+      enter("#s10 .kicker", 144.2);
+      tl.fromTo("#s10 .card", { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 0.55, ease: "power2.out" }, 144.7);
+      tl.fromTo("#s10 .banner", { opacity: 0, scale: 0.92 }, { opacity: 1, scale: 1, duration: 0.5, ease: "back.out(1.6)" }, 145.6);
+      tl.fromTo("#s10 .sub", { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.5 }, 145.0);
+
+      // S11 · 158-170
+      tl.fromTo("#s11 .inner", { opacity: 0, y: 26 }, { opacity: 1, y: 0, duration: 0.7, ease: "power2.out" }, 158.3);
+      tl.fromTo("#s11 .c11", { opacity: 0, y: 24 }, { opacity: 1, y: 0, duration: 0.5, stagger: 0.16 }, 158.9);
+      tl.fromTo("#s11 .sub", { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.5 }, 159.2);
+
+      window.__timelines["main"] = tl;
+      tl.seek(0);
+    </script>
+  </body>
+</html>
