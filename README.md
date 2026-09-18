@@ -63,18 +63,18 @@ judge's replay meaningful.
 | Aspect | Behavior                                                                                                                                                                                                                                          |
 | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Key    | FNV hash of `battery.capacity_kwh` plus the operator notes. Capacity belongs in the key because percentage-based reserves ("keep 50% of capacity") convert through it. Identical notes under a different capacity are a different interpretation. |
-| Effect | Repeat scenarios skip the LLM. Measured 21-37 ms warm versus 2-8 s cold.                                                                                                                                                                          |
+| Effect | Repeat scenarios skip the LLM. Measured about 172 ms median cached versus 1.7-2.1 s cold end to end.                                                                                                                                              |
 | Scope  | Per Worker isolate, in-memory `Map`. No cross-isolate sharing, no persistence, no TTL.                                                                                                                                                            |
 
 ### Failure handling
 
-| Failure                                  | Behavior                                                                   |
-| ---------------------------------------- | -------------------------------------------------------------------------- |
-| Malformed JSON, bad schema               | `400` or `422` with details. The service stays up.                         |
-| LLM emits invalid structure              | Guardrails reject it and the model is re-prompted with the exact error.    |
-| One model or provider slow or down       | A later tier answers. Worst case is about 20 s against the 30 s judge cap. |
-| Every LLM attempt fails                  | Controlled `500`. The service does not invent directives.                  |
-| LP infeasible or self-verification fails | Controlled `500`. A schedule that violates the rules is not returned.      |
+| Failure                                  | Behavior                                                                                     |
+| ---------------------------------------- | -------------------------------------------------------------------------------------------- |
+| Malformed JSON, bad schema               | `400` or `422` with details. The service stays up.                                           |
+| LLM emits invalid structure              | Guardrails reject it and the model is re-prompted with the exact error.                      |
+| One model or provider slow or down       | A later hedge answers. Worst case hits the 25 s overall deadline against the 30 s judge cap. |
+| Every LLM attempt fails                  | Controlled `500`. The service does not invent directives.                                    |
+| LP infeasible or self-verification fails | Controlled `500`. A schedule that violates the rules is not returned.                        |
 
 ### Stack
 
@@ -96,6 +96,9 @@ judge's replay meaningful.
   returns `scenario_id`, `directive_interpretation`, `hourly_plan`,
   `total_grid_kwh`, `total_cost_bdt`, `peak_grid_kwh`, and `plan_summary` per the
   Problem Statement.
+- `GET /docs` serves the Scalar API reference; `GET /openapi.json` serves the
+  OpenAPI 3.1 spec; `GET /demo` serves a live benchmark page that fires 10
+  cached plus 10 cold requests against the worker and reports latencies.
 
 Error responses are controlled JSON. `400 malformed_json` for an unparseable body,
 `400 invalid_request` for structural violations, `422 semantically_invalid` for a
@@ -231,6 +234,8 @@ apps/server/
   src/optimizer.ts      Effective-scenario builder and LP solver
   src/verifier.ts       Judge-mirror replay verifier
   src/config.ts         Runtime env (Worker bindings or process.env)
+  src/docs.ts           OpenAPI spec plus Scalar reference page
+  src/demo.ts           Live benchmark page (10 cached plus 10 cold requests)
   src/node-entry.ts     Node/Bun entry for Docker and local dev
   scripts/test-samples.ts   Public sample harness
   wrangler.jsonc        Cloudflare Worker config

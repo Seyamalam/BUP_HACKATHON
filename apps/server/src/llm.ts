@@ -137,10 +137,9 @@ const NO_THINKING: GenProviderOptions = {
 };
 
 /**
- * Interprets all operator notes with a hedged provider chain: the AI Gateway
- * model chain fires immediately, Gemini follows after a short delay, and
- * OpenRouter after a longer one (each tier skipped when unconfigured, so the
- * next configured tier starts at zero). The first response that passes
+ * Interprets all operator notes with a small hedged race: the first model of
+ * Gateway and Gemini fire at t=0, each chain's next model follows 2.5 s
+ * behind, OpenRouter forms the last tier. The first response that passes
  * deterministic guardrails wins. Guardrail failures re-prompt that model
  * once with the exact validation error. Throws when every provider fails
  * (caller maps to a controlled 500).
