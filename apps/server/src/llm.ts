@@ -1,12 +1,25 @@
+import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
-import { generateText } from "ai";
+import { generateText, type LanguageModel } from "ai";
 
 import { GuardrailError, validateInterpretations } from "./guardrails";
 import type { DirectiveInterpretation, OptimizeRequest } from "./schema";
 
-export const DEFAULT_MODELS = ["inclusionai/ling-3.0-flash-sante:free", "openrouter/free"];
+export const DEFAULT_OPENROUTER_MODELS = [
+  "inclusionai/ling-3.0-flash-sante:free",
+  "openrouter/free",
+];
+// Gemini chain, in preference order: all are raced immediately.
+export const DEFAULT_GEMINI_MODELS = [
+  "gemini-3.8-flash",
+  "gemini-3.7-flash",
+  "gemini-3.5-flash-lite",
+];
 
 const ATTEMPT_TIMEOUT_MS = 20_000;
+// OpenRouter attempts start this long after Gemini: Gemini gets priority
+// when it is healthy, OpenRouter acts as the near-instant fallback.
+const FALLBACK_DELAY_MS = 2_500;
 const FEEDBACK_ROUNDS = 2;
 
 // In-isolate cache: identical note sets never hit the network twice.
@@ -95,16 +108,31 @@ note: "The sports office moved next month's registration deadline."
 => {"note_index":0,"applies":false,"directive_type":"no_op","structured_adjustment":null,"explanation":"Administrative note with no effect on today's energy schedule."}`;
 
 export type LlmConfig = {
-  apiKey: string;
-  models: string[];
+  geminiApiKey?: string;
+  geminiModels: string[];
+  openrouterApiKey?: string;
+  openrouterModels: string[];
+};
+
+type ProviderAttempt = {
+  label: string;
+  delayMs: number;
+  start: () => Promise<DirectiveInterpretation[]>;
+};
+
+// Extraction does not need chain-of-thought; disabling it cuts latency.
+type GenProviderOptions = NonNullable<Parameters<typeof generateText>[0]["providerOptions"]>;
+const NO_THINKING: GenProviderOptions = {
+  google: { thinkingConfig: { thinkingBudget: 0 } },
 };
 
 /**
- * Interprets all operator notes in one structured LLM call per model,
- * RACING the configured model chain in parallel: the first response that
- * passes deterministic guardrails wins. Within one model, guardrail
- * failures are retried once with the error fed back. Throws when every
- * model fails (caller maps to a controlled 500).
+ * Interprets all operator notes with a hedged provider chain: Gemini fires
+ * immediately, the OpenRouter model chain follows after a short delay (or
+ * instantly when Gemini errors fast). The first response that passes
+ * deterministic guardrails wins. Guardrail failures re-prompt that model
+ * once with the exact validation error. Throws when every provider fails
+ * (caller maps to a controlled 500).
  */
 export async function interpretNotes(
   input: OptimizeRequest,
@@ -117,24 +145,54 @@ export async function interpretNotes(
   const cached = interpretationCache.get(key);
   if (cached) return cached;
 
-  const openrouter = createOpenRouter({ apiKey: config.apiKey });
+  const attempts: ProviderAttempt[] = [];
 
-  const attempts = config.models.map((modelId) =>
-    attemptModel(openrouter, modelId, input).then((result) => {
+  if (config.geminiApiKey) {
+    const google = createGoogleGenerativeAI({ apiKey: config.geminiApiKey });
+    for (const modelId of config.geminiModels) {
+      const model = google(modelId);
+      // Lite models do not expose a thinking toggle; passing it errors.
+      const options = modelId.includes("lite") ? undefined : NO_THINKING;
+      attempts.push({
+        label: `gemini/${modelId}`,
+        delayMs: 0,
+        start: () => attemptModel(model, input, options),
+      });
+    }
+  }
+
+  if (config.openrouterApiKey) {
+    const openrouter = createOpenRouter({ apiKey: config.openrouterApiKey });
+    for (const modelId of config.openrouterModels) {
+      const model = openrouter(modelId);
+      attempts.push({
+        label: `openrouter/${modelId}`,
+        delayMs: FALLBACK_DELAY_MS,
+        start: () => attemptModel(model, input),
+      });
+    }
+  }
+
+  if (attempts.length === 0) {
+    throw new Error("no LLM provider configured");
+  }
+
+  const races = attempts.map(({ delayMs, start }) =>
+    (delayMs > 0 ? sleep(delayMs).then(start) : start()).then((result) => {
       interpretationCache.set(key, result);
       return result;
     }),
   );
 
   try {
-    return await Promise.any(attempts);
+    return await Promise.any(races);
   } catch (err) {
     const details =
       err instanceof AggregateError
         ? err.errors
             .map(
               (e, i) =>
-                `${config.models[i] ?? `model ${i}`}: ${e instanceof Error ? e.message : String(e)}`,
+                `${attempts[i]?.label ?? `provider ${i}`}: ${e instanceof Error ? e.message : String(e)}`,
             )
             .join(" | ")
         : err instanceof Error
@@ -144,10 +202,14 @@ export async function interpretNotes(
   }
 }
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 async function attemptModel(
-  openrouter: ReturnType<typeof createOpenRouter>,
-  modelId: string,
+  model: LanguageModel,
   input: OptimizeRequest,
+  providerOptions?: GenProviderOptions,
 ): Promise<DirectiveInterpretation[]> {
   const userPrompt = buildUserPrompt(input);
   let feedback = "";
@@ -156,11 +218,12 @@ async function attemptModel(
   for (let round = 0; round < FEEDBACK_ROUNDS; round++) {
     try {
       const { text } = await generateText({
-        model: openrouter(modelId),
+        model,
         system: SYSTEM_PROMPT,
         prompt: feedback ? `${userPrompt}\n\n${feedback}` : userPrompt,
         abortSignal: AbortSignal.timeout(ATTEMPT_TIMEOUT_MS),
         maxRetries: 0,
+        ...(providerOptions ? { providerOptions } : {}),
       });
       return validateInterpretations(extractJson(text), input);
     } catch (err) {

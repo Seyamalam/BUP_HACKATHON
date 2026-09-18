@@ -66,6 +66,7 @@ app.post("/optimize-energy", async (c) => {
     const effective = buildEffectiveScenario(input, interpretations);
     const plan = solveScenario(effective);
     if (!plan) {
+      console.error("LP infeasible for scenario", input.scenario_id);
       return c.json(
         { error: "optimization_failed", message: "No feasible schedule found for this scenario." },
         500,

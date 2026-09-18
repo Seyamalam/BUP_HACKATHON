@@ -16,12 +16,14 @@ flowchart TD
     J["Judge harness / curl"] -->|"POST /optimize-energy"| A["Hono API (Cloudflare Worker / Node)"]
     A --> S1["1. Request validation (zod): 400 malformed, 400 structural, 422 semantic"]
     S1 --> Q{"notes + battery capacity in cache?"}
-    Q -->|"hit (~25 ms)"| APPLY
+    Q -->|"hit (~0.5 s via edge)"| APPLY
     Q -->|miss| RACE
-    subgraph RACE["2. LLM interpretation, models raced in parallel"]
-        M1["ling-3.0-flash-sante:free"]
-        M2["openrouter/free"]
-        M1 & M2 -->|"first response that passes guardrails wins"| G
+    subgraph RACE["2. LLM interpretation, hedged provider chain"]
+        M1["gemini-3.8-flash"]
+        M2["gemini-3.7-flash"]
+        M3["gemini-3.5-flash-lite"]
+        M4["openrouter fallbacks (2.5 s hedge)"]
+        M1 & M2 & M3 & M4 -->|"first response that passes guardrails wins"| G
     end
     G["3. Deterministic guardrails: directive-type enum, 1:1 note mapping, hours unique/ascending 0-23, factor in [0,1], reserve within capacity, applies semantics"]
     G -->|"invalid output"| FB["re-prompt same model with the exact validation error"]
@@ -59,33 +61,33 @@ judge's replay meaningful.
 
 ### Caching
 
-| Aspect | Behavior |
-|---|---|
-| Key | FNV hash of `battery.capacity_kwh` plus the operator notes. Capacity belongs in the key because percentage-based reserves ("keep 50% of capacity") convert through it. Identical notes under a different capacity are a different interpretation. |
-| Effect | Repeat scenarios skip the LLM. Measured 21-37 ms warm versus 2-8 s cold. |
-| Scope | Per Worker isolate, in-memory `Map`. No cross-isolate sharing, no persistence, no TTL. |
+| Aspect | Behavior                                                                                                                                                                                                                                          |
+| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Key    | FNV hash of `battery.capacity_kwh` plus the operator notes. Capacity belongs in the key because percentage-based reserves ("keep 50% of capacity") convert through it. Identical notes under a different capacity are a different interpretation. |
+| Effect | Repeat scenarios skip the LLM. Measured 21-37 ms warm versus 2-8 s cold.                                                                                                                                                                          |
+| Scope  | Per Worker isolate, in-memory `Map`. No cross-isolate sharing, no persistence, no TTL.                                                                                                                                                            |
 
 ### Failure handling
 
-| Failure | Behavior |
-|---|---|
-| Malformed JSON, bad schema | `400` or `422` with details. The service stays up. |
-| LLM emits invalid structure | Guardrails reject it and the model is re-prompted with the exact error. |
-| One model slow or down | The other raced model answers. Worst case is about 20 s against the 30 s judge cap. |
-| Every LLM attempt fails | Controlled `500`. The service does not invent directives. |
-| LP infeasible or self-verification fails | Controlled `500`. A schedule that violates the rules is not returned. |
+| Failure                                  | Behavior                                                                            |
+| ---------------------------------------- | ----------------------------------------------------------------------------------- |
+| Malformed JSON, bad schema               | `400` or `422` with details. The service stays up.                                  |
+| LLM emits invalid structure              | Guardrails reject it and the model is re-prompted with the exact error.             |
+| One model slow or down                   | The other raced model answers. Worst case is about 20 s against the 30 s judge cap. |
+| Every LLM attempt fails                  | Controlled `500`. The service does not invent directives.                           |
+| LP infeasible or self-verification fails | Controlled `500`. A schedule that violates the rules is not returned.               |
 
 ### Stack
 
-| Layer | Technology |
-|---|---|
-| HTTP server | Hono on Cloudflare Workers, or Node via `@hono/node-server` |
-| LLM access | OpenRouter through the Vercel AI SDK (`generateText` plus tolerant JSON extraction) |
-| Models | `inclusionai/ling-3.0-flash-sante:free` and `openrouter/free`, raced in parallel |
-| Guardrails | Hand-written deterministic validators with zod |
-| Optimizer | `javascript-lp-solver`, exact LP Simplex, ~120 variables, 1-3 ms |
-| Verification | Deterministic schedule replay mirroring the judge |
-| Deployment | `wrangler deploy`, Docker fallback image |
+| Layer        | Technology                                                                                                                                                                                                                                   |
+| ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| HTTP server  | Hono on Cloudflare Workers, or Node via `@hono/node-server`                                                                                                                                                                                  |
+| LLM access   | Gemini API and OpenRouter through the Vercel AI SDK (`generateText` plus tolerant JSON extraction)                                                                                                                                           |
+| Models       | Gemini chain raced immediately: `gemini-3.8-flash`, `gemini-3.7-flash`, `gemini-3.5-flash-lite` (thinking disabled). OpenRouter chain follows 2.5 s later as the hedged fallback: `inclusionai/ling-3.0-flash-sante:free`, `openrouter/free` |
+| Guardrails   | Hand-written deterministic validators with zod                                                                                                                                                                                               |
+| Optimizer    | `javascript-lp-solver`, exact LP Simplex, ~120 variables, 1-3 ms                                                                                                                                                                             |
+| Verification | Deterministic schedule replay mirroring the judge                                                                                                                                                                                            |
+| Deployment   | `wrangler deploy`, Docker fallback image                                                                                                                                                                                                     |
 
 ## API
 
@@ -103,11 +105,16 @@ well-formed but inconsistent request such as duplicate or missing hours, and
 
 ## Environment variables
 
-| Name | Required | Description |
-|---|---|---|
-| `OPENROUTER_API_KEY` | yes | OpenRouter API key. Keep it secret. |
-| `OPENROUTER_MODELS` | no | Comma-separated model chain override. |
-| `PORT` | no | Listen port for the Node and Docker entry. Defaults to 3000. |
+| Name                           | Required            | Description                                                                                          |
+| ------------------------------ | ------------------- | ---------------------------------------------------------------------------------------------------- |
+| `GOOGLE_GENERATIVE_AI_API_KEY` | one of the two keys | Gemini API key. Primary provider. Keep it secret.                                                    |
+| `OPENROUTER_API_KEY`           | one of the two keys | OpenRouter API key. Fallback provider. Keep it secret.                                               |
+| `GEMINI_MODELS`                | no                  | Comma-separated Gemini chain. Defaults to `gemini-3.8-flash,gemini-3.7-flash,gemini-3.5-flash-lite`. |
+| `OPENROUTER_MODELS`            | no                  | Comma-separated OpenRouter chain override.                                                           |
+| `PORT`                         | no                  | Listen port for the Node and Docker entry. Defaults to 3000.                                         |
+
+Both keys may be set. Each request fires the Gemini chain immediately and the
+OpenRouter chain 2.5 s later. The first response that passes guardrails wins.
 
 ## Local quickstart
 
@@ -117,8 +124,8 @@ Prerequisite: [Bun](https://bun.sh) v1.4 or later.
 git clone <repo-url> && cd BUP_HACKATHON
 bun install
 
-# The .env file is git-ignored.
-printf 'OPENROUTER_API_KEY=sk-or-...\n' > apps/server/.env
+# The .env file is git-ignored. Set one or both provider keys.
+printf 'GOOGLE_GENERATIVE_AI_API_KEY=AQ...\nOPENROUTER_API_KEY=sk-or-...\n' > apps/server/.env
 
 # Start the API on http://localhost:3000
 bun run dev
@@ -162,9 +169,10 @@ The optimizer alone, without the LLM, reproduces the reference optimal cost on a
 
 ```bash
 cd apps/server
-bunx wrangler login                            # one-time
-bunx wrangler secret put OPENROUTER_API_KEY    # store the key as a secret
-bun run deploy                                 # wrangler deploy
+bunx wrangler login                                   # one-time
+bunx wrangler secret put GOOGLE_GENERATIVE_AI_API_KEY # Gemini key
+bunx wrangler secret put OPENROUTER_API_KEY           # OpenRouter key
+bun run deploy                                        # wrangler deploy
 ```
 
 The worker name is `gridwise-llm`. Wrangler prints the public
@@ -178,12 +186,14 @@ Pullable image on Docker Hub:
 
 ```
 docker.io/touhidulalam41/gridwise-llm:1.0.0
-digest: sha256:6b7df6c7457f8d98709d70a6b0d7d337cc89efc0c7bc6eb915def282ce3e585e
+digest: sha256:512036c5347606ef3a7a933e25aa9a5fd8d2e0e92c0a3fcef1cb47c33cc746a1
 ```
 
 ```bash
 docker pull docker.io/touhidulalam41/gridwise-llm:1.0.0
-docker run --rm -p 3000:3000 -e OPENROUTER_API_KEY=sk-or-... \
+docker run --rm -p 3000:3000 \
+  -e GOOGLE_GENERATIVE_AI_API_KEY=AQ... \
+  -e OPENROUTER_API_KEY=sk-or-... \
   docker.io/touhidulalam41/gridwise-llm:1.0.0
 curl http://localhost:3000/health
 # {"status":"ok"}
@@ -193,11 +203,14 @@ Or build from source:
 
 ```bash
 docker build -t gridwise-llm:latest .
-docker run --rm -p 3000:3000 -e OPENROUTER_API_KEY=sk-or-... gridwise-llm:latest
+docker run --rm -p 3000:3000 \
+  -e GOOGLE_GENERATIVE_AI_API_KEY=AQ... \
+  -e OPENROUTER_API_KEY=sk-or-... \
+  gridwise-llm:latest
 ```
 
 The image bundles the server into one file with `bun build` and binds to
-`0.0.0.0:3000`. It contains no secrets. `OPENROUTER_API_KEY` is a runtime variable.
+`0.0.0.0:3000`. It contains no secrets. API keys are runtime variables.
 
 ## Repository layout
 
@@ -225,9 +238,10 @@ libraries are credited per their licenses.
 
 ## Known limitations
 
-- Free-tier OpenRouter models have provider-side rate limits. The service races a
-  fallback model, but if every model in the chain is unavailable the request ends
-  in a controlled 500. Set `OPENROUTER_MODELS` to a paid model for stable latency.
+- Free-tier models have provider-side rate limits (the OpenRouter free daily cap is
+  the tightest). The service races Gemini plus two OpenRouter fallbacks, but if
+  every provider is exhausted the request ends in a controlled 500. Paid keys or
+  different models can be set through the environment for heavier load.
 - The interpretation cache lives per Worker isolate, so it does not share across
   isolates.
 - Solar curtailment is free and grid export is not modeled, both per the spec.

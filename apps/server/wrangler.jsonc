@@ -7,6 +7,7 @@
   "workers_dev": true,
   "minify": true,
   "vars": {
+    "GEMINI_MODELS": "gemini-3.8-flash,gemini-3.7-flash,gemini-3.5-flash-lite",
     "OPENROUTER_MODELS": "inclusionai/ling-3.0-flash-sante:free,openrouter/free",
   },
 }
