@@ -50,7 +50,9 @@ deterministic TypeScript (no LLM in the math path).
   `directive_interpretation`, `hourly_plan`, `total_grid_kwh`, `total_cost_bdt`,
   `peak_grid_kwh`, `plan_summary` per the Problem Statement.
 
-Errors are controlled JSON: `400 malformed_json` / `400 invalid_request` /
+Errors are controlled JSON: `400 malformed_json` (unparseable body) /
+`400 invalid_request` (structurally invalid) / `422 semantically_invalid`
+(well-formed but inconsistent, e.g. duplicate/missing hours) /
 `500 internal_error` — no stack traces, no secrets.
 
 ## Environment variables
@@ -129,7 +131,7 @@ Pullable registry reference (Docker Hub):
 
 ```
 docker.io/touhidulalam41/gridwise-llm:1.0.0
-digest: sha256:543154e699759c6088428291ad539b08306bae11374a71411b965f5701ef227d
+digest: sha256:6b7df6c7457f8d98709d70a6b0d7d337cc89efc0c7bc6eb915def282ce3e585e
 ```
 
 ```bash

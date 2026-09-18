@@ -26,34 +26,40 @@ export const batterySchema = z.object({
   max_discharge_kwh_per_hour: z.number().finite().nonnegative(),
 });
 
-export const requestSchema = z
-  .object({
-    scenario_id: z.string().min(1),
-    operator_notes: z.array(z.string().min(1)).min(1).max(3),
-    hours: z.array(hourEntrySchema).length(24),
-    battery: batterySchema,
-  })
-  .superRefine((val, ctx) => {
-    const seen = new Set<number>();
-    for (const h of val.hours) {
-      if (seen.has(h.hour)) {
-        ctx.addIssue({ code: "custom", message: `duplicate hour ${h.hour}` });
-      }
-      seen.add(h.hour);
-    }
-    for (let i = 0; i < 24; i++) {
-      if (!seen.has(i)) {
-        ctx.addIssue({ code: "custom", message: `missing hour ${i}` });
-      }
-    }
-    const b = val.battery;
-    if (b.minimum_energy_kwh > b.capacity_kwh) {
-      ctx.addIssue({ code: "custom", message: "minimum_energy_kwh exceeds capacity_kwh" });
-    }
-    if (b.initial_energy_kwh > b.capacity_kwh) {
-      ctx.addIssue({ code: "custom", message: "initial_energy_kwh exceeds capacity_kwh" });
-    }
-  });
+/** Structural contract (types, shapes, lengths) — failures map to HTTP 400. */
+export const requestSchemaBase = z.object({
+  scenario_id: z.string().min(1),
+  operator_notes: z.array(z.string().min(1)).min(1).max(3),
+  hours: z.array(hourEntrySchema).length(24),
+  battery: batterySchema,
+});
+
+/** Semantic rules on a well-formed request — failures map to HTTP 422. */
+export function validateRequestSemantics(input: z.infer<typeof requestSchemaBase>): string[] {
+  const errors: string[] = [];
+  const seen = new Set<number>();
+  for (const h of input.hours) {
+    if (seen.has(h.hour)) errors.push(`duplicate hour ${h.hour}`);
+    seen.add(h.hour);
+  }
+  for (let i = 0; i < 24; i++) {
+    if (!seen.has(i)) errors.push(`missing hour ${i}`);
+  }
+  const b = input.battery;
+  if (b.minimum_energy_kwh > b.capacity_kwh) {
+    errors.push("minimum_energy_kwh exceeds capacity_kwh");
+  }
+  if (b.initial_energy_kwh > b.capacity_kwh) {
+    errors.push("initial_energy_kwh exceeds capacity_kwh");
+  }
+  return errors;
+}
+
+export const requestSchema = requestSchemaBase.superRefine((val, ctx) => {
+  for (const message of validateRequestSemantics(val)) {
+    ctx.addIssue({ code: "custom", message });
+  }
+});
 
 export type HourEntry = z.infer<typeof hourEntrySchema>;
 export type Battery = z.infer<typeof batterySchema>;

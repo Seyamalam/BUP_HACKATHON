@@ -5,7 +5,7 @@ import { logger } from "hono/logger";
 import { ConfigError, getConfig } from "./config";
 import { interpretNotes } from "./llm";
 import { buildEffectiveScenario, solveScenario } from "./optimizer";
-import { requestSchema } from "./schema";
+import { requestSchemaBase, validateRequestSemantics } from "./schema";
 import { verifyPlan } from "./verifier";
 
 const app = new Hono();
@@ -31,7 +31,7 @@ app.post("/optimize-energy", async (c) => {
     return c.json({ error: "malformed_json", message: "Request body is not valid JSON." }, 400);
   }
 
-  const parsed = requestSchema.safeParse(raw);
+  const parsed = requestSchemaBase.safeParse(raw);
   if (!parsed.success) {
     return c.json(
       {
@@ -46,6 +46,15 @@ app.post("/optimize-energy", async (c) => {
   }
 
   const input = parsed.data;
+
+  // 422 (optional per spec): well-formed but semantically invalid.
+  const semanticErrors = validateRequestSemantics(input);
+  if (semanticErrors.length > 0) {
+    return c.json(
+      { error: "semantically_invalid", message: semanticErrors.slice(0, 5).join("; ") },
+      422,
+    );
+  }
 
   try {
     const config = getConfig(c);
