@@ -189,7 +189,7 @@ The worker name is `gridwise-llm`. The live deployment answers at
 through `vars` in `wrangler.jsonc`. Override one without redeploying with
 `bunx wrangler secret put <NAME>_MODELS`.
 
-## Docker fallback
+## Docker setup
 
 Pullable image on Docker Hub (linux/amd64 and linux/arm64):
 
@@ -198,18 +198,79 @@ docker.io/touhidulalam41/gridwise-llm:1.3.0
 digest: sha256:afa2692a449a0bd7e9e88e8c2ac9c0638c6127d8392a66d026a41c5ac3f841ad
 ```
 
+### 1. Start the Docker daemon
+
+The image runs anywhere Docker runs. On macOS with Colima:
+
+```bash
+colima start
+docker info  # must respond without errors
+```
+
+### 2. Pull the image
+
 ```bash
 docker pull docker.io/touhidulalam41/gridwise-llm:1.3.0
+```
+
+### 3. Run the container
+
+Pass at least one provider key. All three may be set; the service uses
+whichever providers are configured.
+
+```bash
 docker run --rm -p 3000:3000 \
   -e AI_GATEWAY_API_KEY=vck_... \
   -e GOOGLE_GENERATIVE_AI_API_KEY=AQ... \
   -e OPENROUTER_API_KEY=sk-or-... \
   docker.io/touhidulalam41/gridwise-llm:1.3.0
+```
+
+The server listens on `0.0.0.0:3000` inside the container, mapped to
+`localhost:3000` on the host. The `--rm` flag removes the container on stop.
+
+### 4. Verify it is up
+
+```bash
 curl http://localhost:3000/health
 # {"status":"ok"}
 ```
 
-Or build from source:
+### 5. Send a real request
+
+Post the first public sample case straight from the sample pack:
+
+```bash
+python3 -c "
+import json
+pack = json.load(open('BUP_CSE_FEST_2026_Participant_Docs/BUP_CSE_FEST_2026_Preli_Public_Sample_Cases.json'))
+print(json.dumps(pack['cases'][0]['input']))
+" | curl -s -X POST http://localhost:3000/optimize-energy \
+  -H 'content-type: application/json' --data @- | python3 -m json.tool | head -30
+```
+
+Expect HTTP 200 with `directive_interpretation` (`solar_reduction` plus a
+`no_op`) and a 24-entry `hourly_plan` at the reference optimal cost.
+
+### 6. Run the full sample suite against the container
+
+```bash
+cd apps/server
+BASE_URL=http://localhost:3000 bun run scripts/test-samples.ts --no-spawn
+```
+
+Expected result: `10 passed, 0 failed` with a cost ratio of 1.0000 per case.
+
+### 7. Stop the container
+
+```bash
+docker stop $(docker ps -q --filter ancestor=docker.io/touhidulalam41/gridwise-llm:1.3.0)
+```
+
+Or press Ctrl-C if it runs in the foreground. With `--rm` the container is
+removed automatically.
+
+### Build from source
 
 ```bash
 docker build -t gridwise-llm:latest .
