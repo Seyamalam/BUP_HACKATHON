@@ -18,10 +18,10 @@ flowchart TD
     S1 --> Q{"notes + battery capacity in cache?"}
     Q -->|"hit (~0.5 s via edge)"| APPLY
     Q -->|miss| RACE
-    subgraph RACE["2. LLM interpretation, hedged provider chain"]
-        T0["tier 0 (fires immediately): AI Gateway chain — ling-3.0-flash-fin, fin-free, sante, sante-free, vl, vl-free, laguna-s-2.1-free"]
-        T1["tier 1 (2.5 s hedge): gemini-3.8-flash, gemini-3.7-flash, gemini-3.5-flash-lite"]
-        T2["tier 2 (5 s hedge): openrouter free fallbacks"]
+    subgraph RACE["2. LLM interpretation, small race with hedges"]
+        T0["t=0 (raced): AI Gateway ling-3.0-flash-fin + Gemini gemini-3.8-flash"]
+        T1["t=2.5 s (hedged): gateway ling-3.0-flash-sante + gemini-3.7-flash + OpenRouter ling-sante:free"]
+        T2["t=5 s (last resort): openrouter/free"]
         T0 & T1 & T2 -->|"first response that passes guardrails wins"| G
     end
     G["3. Deterministic guardrails: directive-type enum, 1:1 note mapping, hours unique/ascending 0-23, factor in [0,1], reserve within capacity, applies semantics"]
@@ -68,25 +68,25 @@ judge's replay meaningful.
 
 ### Failure handling
 
-| Failure                                  | Behavior                                                                            |
-| ---------------------------------------- | ----------------------------------------------------------------------------------- |
-| Malformed JSON, bad schema               | `400` or `422` with details. The service stays up.                                  |
-| LLM emits invalid structure              | Guardrails reject it and the model is re-prompted with the exact error.             |
-| One model or provider slow or down       | A later tier answers. Worst case is about 20 s against the 30 s judge cap.          |
-| Every LLM attempt fails                  | Controlled `500`. The service does not invent directives.                           |
-| LP infeasible or self-verification fails | Controlled `500`. A schedule that violates the rules is not returned.               |
+| Failure                                  | Behavior                                                                   |
+| ---------------------------------------- | -------------------------------------------------------------------------- |
+| Malformed JSON, bad schema               | `400` or `422` with details. The service stays up.                         |
+| LLM emits invalid structure              | Guardrails reject it and the model is re-prompted with the exact error.    |
+| One model or provider slow or down       | A later tier answers. Worst case is about 20 s against the 30 s judge cap. |
+| Every LLM attempt fails                  | Controlled `500`. The service does not invent directives.                  |
+| LP infeasible or self-verification fails | Controlled `500`. A schedule that violates the rules is not returned.      |
 
 ### Stack
 
-| Layer        | Technology                                                                                                                                                                                                                                   |
-| ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| HTTP server  | Hono on Cloudflare Workers, or Node via `@hono/node-server`                                                                                                                                                                                  |
-| LLM access   | Vercel AI Gateway, Gemini API, and OpenRouter through the Vercel AI SDK (`generateText` plus tolerant JSON extraction)                                                                                                                      |
-| Models       | AI Gateway chain raced immediately: `inclusionai/ling-3.0-flash-fin`, `-fin-free`, `-sante`, `-sante-free`, `-vl`, `-vl-free`, `poolside/laguna-s-2.1-free`. Gemini chain hedged 2.5 s later: `gemini-3.8-flash`, `gemini-3.7-flash`, `gemini-3.5-flash-lite` (thinking disabled). OpenRouter chain hedged 5 s later: `inclusionai/ling-3.0-flash-sante:free`, `openrouter/free` |
-| Guardrails   | Hand-written deterministic validators with zod                                                                                                                                                                                               |
-| Optimizer    | `javascript-lp-solver`, exact LP Simplex, ~120 variables, 1-3 ms                                                                                                                                                                             |
-| Verification | Deterministic schedule replay mirroring the judge                                                                                                                                                                                            |
-| Deployment   | `wrangler deploy`, Docker fallback image                                                                                                                                                                                                     |
+| Layer        | Technology                                                                                                                                                                                                                                                                                                                                                                          |
+| ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| HTTP server  | Hono on Cloudflare Workers, or Node via `@hono/node-server`                                                                                                                                                                                                                                                                                                                         |
+| LLM access   | Vercel AI Gateway, Gemini API, and OpenRouter through the Vercel AI SDK (`generateText` plus tolerant JSON extraction)                                                                                                                                                                                                                                                              |
+| Models       | Small race with hedges, 2 calls typical: at t=0, `inclusionai/ling-3.0-flash-fin` (AI Gateway) races `gemini-3.8-flash` (thinking disabled). At t=2.5 s, `inclusionai/ling-3.0-flash-sante`, `gemini-3.7-flash`, and OpenRouter `ling-3.0-flash-sante:free` hedge behind. At t=5 s, `openrouter/free` is the last resort. The chain is capped at 6 calls to spare free-tier quotas. |
+| Guardrails   | Hand-written deterministic validators with zod                                                                                                                                                                                                                                                                                                                                      |
+| Optimizer    | `javascript-lp-solver`, exact LP Simplex, ~120 variables, 1-3 ms                                                                                                                                                                                                                                                                                                                    |
+| Verification | Deterministic schedule replay mirroring the judge                                                                                                                                                                                                                                                                                                                                   |
+| Deployment   | `wrangler deploy`, Docker fallback image                                                                                                                                                                                                                                                                                                                                            |
 
 ## API
 
@@ -104,20 +104,22 @@ well-formed but inconsistent request such as duplicate or missing hours, and
 
 ## Environment variables
 
-| Name                           | Required         | Description                                                                                                                                                                            |
-| ------------------------------ | ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `AI_GATEWAY_API_KEY`           | at least one key | Vercel AI Gateway key. Primary provider. Keep it secret.                                                                                                                               |
-| `GOOGLE_GENERATIVE_AI_API_KEY` | at least one key | Gemini API key. First fallback. Keep it secret.                                                                                                                                        |
-| `OPENROUTER_API_KEY`           | at least one key | OpenRouter API key. Last fallback. Keep it secret.                                                                                                                                     |
-| `AI_GATEWAY_MODELS`            | no               | Comma-separated gateway chain. Defaults to `inclusionai/ling-3.0-flash-fin,inclusionai/ling-3.0-flash-fin-free,inclusionai/ling-3.0-flash-sante,inclusionai/ling-3.0-flash-sante-free,inclusionai/ling-3.0-flash-vl,inclusionai/ling-3.0-flash-vl-free,poolside/laguna-s-2.1-free`. |
-| `GEMINI_MODELS`                | no               | Comma-separated Gemini chain. Defaults to `gemini-3.8-flash,gemini-3.7-flash,gemini-3.5-flash-lite`.                                                                                   |
-| `OPENROUTER_MODELS`            | no               | Comma-separated OpenRouter chain override.                                                                                                                                             |
-| `PORT`                         | no               | Listen port for the Node and Docker entry. Defaults to 3000.                                                                                                                           |
+| Name                           | Required         | Description                                                                                                   |
+| ------------------------------ | ---------------- | ------------------------------------------------------------------------------------------------------------- |
+| `AI_GATEWAY_API_KEY`           | at least one key | Vercel AI Gateway key. Primary provider. Keep it secret.                                                      |
+| `GOOGLE_GENERATIVE_AI_API_KEY` | at least one key | Gemini API key. First fallback. Keep it secret.                                                               |
+| `OPENROUTER_API_KEY`           | at least one key | OpenRouter API key. Last fallback. Keep it secret.                                                            |
+| `AI_GATEWAY_MODELS`            | no               | Comma-separated gateway chain. Defaults to `inclusionai/ling-3.0-flash-fin,inclusionai/ling-3.0-flash-sante`. |
+| `GEMINI_MODELS`                | no               | Comma-separated Gemini chain. Defaults to `gemini-3.8-flash,gemini-3.7-flash`.                                |
+| `OPENROUTER_MODELS`            | no               | Comma-separated OpenRouter chain override.                                                                    |
+| `PORT`                         | no               | Listen port for the Node and Docker entry. Defaults to 3000.                                                  |
 
-All three keys may be set. Each request fires the AI Gateway chain immediately,
-the Gemini chain 2.5 s later, and the OpenRouter chain 5 s later. Unconfigured
-tiers are skipped, so the next configured tier starts at zero. The first
-response that passes guardrails wins.
+All three keys may be set. At t=0 the first Gateway model and the first Gemini
+model race; each chain's next model hedges 2.5 s behind, and OpenRouter forms
+the last tier. The first response that passes guardrails wins, the rest are
+discarded. Racing is capped at 6 calls in the worst case (2 typical) to spare
+free-tier quotas; a pure sequential chain was rejected because one model's
+timeout would stack onto the next and wreck the p95 the judge scores.
 
 ## Local quickstart
 
@@ -189,17 +191,17 @@ through `vars` in `wrangler.jsonc`. Override one without redeploying with
 Pullable image on Docker Hub (linux/amd64 and linux/arm64):
 
 ```
-docker.io/touhidulalam41/gridwise-llm:1.2.0
-digest: sha256:a49438f95ebd230d4744c0e76b4fc5f7fd4c81e97da05ecd78fee4f6116aef42
+docker.io/touhidulalam41/gridwise-llm:1.3.0
+digest: sha256:afa2692a449a0bd7e9e88e8c2ac9c0638c6127d8392a66d026a41c5ac3f841ad
 ```
 
 ```bash
-docker pull docker.io/touhidulalam41/gridwise-llm:1.2.0
+docker pull docker.io/touhidulalam41/gridwise-llm:1.3.0
 docker run --rm -p 3000:3000 \
   -e AI_GATEWAY_API_KEY=vck_... \
   -e GOOGLE_GENERATIVE_AI_API_KEY=AQ... \
   -e OPENROUTER_API_KEY=sk-or-... \
-  docker.io/touhidulalam41/gridwise-llm:1.2.0
+  docker.io/touhidulalam41/gridwise-llm:1.3.0
 curl http://localhost:3000/health
 # {"status":"ok"}
 ```

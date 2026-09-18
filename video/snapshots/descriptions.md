@@ -1,116 +1,79 @@
 # Snapshot Frame Descriptions
 
-**Question asked:** 
+**Question asked:**
 
 Compare each description against your storyboard spec. A "black frame" or "loading screen" for a content beat is a bug.
 
-## frame-00-at-3s.png
-Based on the image provided, here is a summary of the project:
+## frame-00-at-18s.png
 
-*   **Project Name:** GridWise LLM
-*   **Purpose:** Smart Campus Energy Optimization
-*   **Team:** Team Huntrix
-*   **Context:** BUP CSE Fest 2026
-*   **Core Functionality:** The system is designed to take operator notes as input and output optimal energy schedules, likely using a Large Language Model (LLM) to process operational constraints or requirements and convert them into efficient energy usage plans.
+Based on the screenshot provided, here is a summary of the **GridWise live benchmark**:
 
-## frame-01-at-18s.png
-Based on the benchmark results provided in the image, here is an analysis of the "GridWise" system's performance:
+### **Overview**
 
-### Performance Summary
-The benchmark compares two scenarios, both returning a "200 OK" status for every request:
+The benchmark tests the performance of a production worker handling 20 sequential requests to the `/optimize-energy` endpoint. It highlights the difference in response times between cached requests and "cold" (unique) requests.
 
-**1. Cached Performance ("10x cached")**
-*   **Context:** These requests use identical bodies, triggering interpretation cache hits.
-*   **Latency:** After an initial cold-start latency of 2106 ms, subsequent requests are extremely fast, ranging between **158 ms and 184 ms**.
-*   **Median/Mean:** The median latency is **172 ms**, demonstrating high efficiency when the cache is utilized.
+### **Performance Data**
 
-**2. Cold Performance ("10x cold")**
-*   **Context:** These requests use unique notes, forcing the system to execute the full Large Language Model (LLM) processing path.
-*   **Latency:** Latencies consistently fall in the **1.4s to 1.7s range** (1423 ms – 1714 ms).
-*   **Median:** The median latency is approximately **1.7s**,
+- **10x Cached (Identical body, cache hits):**
+  - The first request took 2106 ms, but subsequent requests were significantly faster.
+  - **Results:** Min 158 ms, P50 (median) 172 ms, Mean 365 ms.
+- **10x Cold (Unique note per request, full LLM path):**
+  - These requests represent brand-new data processed by the LLM.
+  - Response times are consistently higher, ranging from approximately 1423 ms to 1714 ms.
+  - **Summary:** The text below the charts notes a median of **1.7 seconds** for these cold requests.
 
-## frame-02-at-60s.png
-This image outlines the architecture of a system designed to process energy-related requests through a multi-stage pipeline, likely for optimizing battery or grid management.
+### **Key Takeaways**
 
-### The Six Stages
-The workflow is structured into a linear sequence of six steps:
+-
 
-1.  **Validate request:** Ensures the initial request is properly formatted and legitimate.
-2.  **LLM interprets notes:** Uses a Large Language Model to translate natural language notes or instructions into a structured format.
-3.  **Guardrails check:** Applies strict logical filters to ensure the interpreted data is safe and feasible.
-4.  **Fold constraints:** Aggregates the various constraints into a format suitable for mathematical optimization.
-5.  **Solve LP:** Executes a Linear Programming (LP) solver to find the optimal energy schedule.
-6.  **Verify plan:** Confirms that the resulting schedule adheres to all operational rules.
+## frame-01-at-92s.png
 
-### Detailed Operational Logic
-The image provides specific insights into the two most critical stages:
+This image outlines a clever architectural strategy for building AI applications with a budget of zero by maximizing free-tier usage across multiple services.
 
-*   **Guardrails Reject (Stage 03):** This acts as a quality control filter. It blocks requests that contain:
-    *   Unknown directive types.
-    *   Unsorted or out-of-
+Here is a breakdown of the workflow described:
 
-## frame-03-at-92s.png
-This image describes an engineering strategy for building AI applications with zero costs by leveraging free tiers of various AI services.
+### 1. The Core Strategy: "Racing" and "Hedging"
 
-Here is a breakdown of the "Squeezing every free tier" approach:
+The goal is to get a fast, valid response without hitting paid rate limits or incurring costs.
 
-### The Architecture: A Multi-Stage Race
-The core concept is to trigger a "race" between multiple AI models and providers to get the fastest or most reliable response without paying.
+- **The Race (t=0 ms):** The system initiates requests simultaneously to two different providers.
+- **The Hedge (t=+2.5 s):** If the initial "race" models fail or don't return a result quickly, a secondary set of requests is triggered through different providers (like OpenRouter). This acts as a fallback or "hedge" to ensure a result is eventually produced.
+- **Winner Takes All:** The system accepts the "first valid answer" that arrives, discarding the others.
 
-1.  **Stage 1: Immediate Start ($t=0$ ms)**
-    *   **AI Gateway:** Sends the request to seven different free AI models simultaneously via the Vercel AI SDK.
-    *   **Gemini:** Simultaneously queries three Gemini variants (3.8, 3.7, and 3.5-lite) with specific instructions to prioritize data extraction over long-form writing.
-2.  **Stage 2: The Backup ($t=+2.5$ s)**
-    *   **OpenRouter:** A "hedged fallback" request is sent after a 2.5-second delay. If the initial fast models haven't provided a valid answer, OpenRouter serves as a secondary source.
-3.  **The "Winner" Logic:**
+### 2. The Components
 
-## frame-04-at-110s.png
+- **AI Gateway:** Used to manage and route these requests efficiently.
+- **Gemini 3.8:** Specifically mentioned as being used with "thinking disabled" to keep it fast and low-resource.
+- **Vercel AI SDK
+
+## frame-02-at-110s.png
+
 Based on the image provided, here is a breakdown of the API endpoint details:
 
-### **Endpoint: `/optimize-energy`**
-*   **Method:** POST
-*   **Description:** "Interpret operator notes and optimize the 24-hour schedule."
+### Endpoint Overview
 
-### **Request Body Structure**
-The request expects a JSON object containing the following parameters:
+- **Path:** `/optimize-energy`
+- **Method:** `POST`
+- **Purpose:** To interpret operator notes and optimize a 24-hour energy schedule.
 
-1.  **`battery` (Object):** Required. Contains energy storage constraints:
-    *   `capacity_kwh`
-    *   `initial_energy_kwh`
-    *   `min_energy_kwh`
-    *   `max_charge_kwh_per_hour`
-    *   `max_discharge_kwh_per_hour`
-2.  **`hours` (Array of Objects):** Required. An array of 24 objects (one for each hour), each containing:
-    *   `hour`
-    *   `demand_kwh`
-    *   `solar_kwh`
-    *   `tariff_bdt_per_kwh`
-3.  **`operator_notes` (Array of Strings
+### Request Body Requirements
 
-## frame-05-at-150s.png
-The image displays a status report or system output summary, likely from a software evaluation or performance benchmarking tool. Here is a breakdown of the information presented:
+The request body expects a JSON object containing three main fields:
 
-### **Top Section (Evaluation Metrics)**
-*   **Public Cases:** 10 out of 10 passed, with a "cost ratio" of 1.0000 per case.
-*   **Interpretation:** Successfully matched the "ground truth" on every note.
-*   **Plan Validation:** The generated plan was confirmed to be valid under both "our" (the system's) and the "judge's" directives.
-*   **Live Requests:** 20 out of 20 passed.
-*   **Latency Performance:**
-    *   **Cold:** ~2 seconds (the time taken for a request when the system is not primed/cached).
-    *   **Cached:** ~172 milliseconds (the speed once the system has stored results).
-*   **Final Summary:** "10 passed, 0 failed."
+1.  **`battery`**: An object containing specifications such as `capacity_kwh`, `initial_energy_kwh`, `max_charge_kwh_per_hour`, and `max_discharge_kwh_per_hour`.
+2.  **`hours`**: An array of 24 objects, each containing `demand_kwh`, `hour`, `solar_kwh`, and `tariff_kst_per_kwh`.
+3.  **`operator_notes`**: An array of strings (minimum length of 1) to provide context (e.g., "Solar output will drop to about 20% from 1 PM to 3 PM").
+4.  **`scenario_id`**: A string identifier for the scenario
 
-### **Bottom Section (Narrative Summary)**
-The text below reiterates the findings in a sentence format: 
-"Results. Ten public cases, ten
+## frame-03-at-160.05s.png
 
-## frame-06-at-160.05s.png
-Based on the image provided, here are the details about the project:
+The provided image is a presentation or title slide for a project called **"GridWise LLM"** by "Team Huntrix."
 
-*   **Project Name:** GridWise LLM
-*   **Team Name:** Team Huntrix
-*   **Deployment/Code Links:**
-    *   **Cloudflare Workers:** [gridwise-llm.seyamalam41.workers.dev](https://gridwise-llm.seyamalam41.workers.dev)
-    *   **Docker Hub:** [docker.io/touhidulalam41/gridwise-llm](https://hub.docker.com/r/touhidulalam41/gridwise-llm)
-*   **Technologies Used:** Cloudflare Workers, Docker.
-*   **Accessibility:** The project is noted as being "everything reproducible from the README."
+Key details from the image:
+
+- **Project Name:** GridWise LLM
+- **Associated Links/Resources:**
+  - `gridwise-llm.seyamalam41.workers.dev` (likely the live Cloudflare Workers deployment)
+  - `docker.io/touhidulalam41/gridwise-llm` (the Docker Hub repository)
+- **Technology Stack:** The bottom text mentions it uses **Cloudflare Workers** and **Docker**.
+- **Status:** It is presented as an open-source/reproducible project, noting that "everything [is] reproducible from the README."

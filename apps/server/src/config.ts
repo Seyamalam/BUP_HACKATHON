@@ -37,7 +37,14 @@ export function getConfig(c: Context): AppConfig {
     .split(",")
     .map((m) => m.trim())
     .filter(Boolean);
-  return { gatewayApiKey, gatewayModels, geminiApiKey, geminiModels, openrouterApiKey, openrouterModels };
+  return {
+    gatewayApiKey,
+    gatewayModels,
+    geminiApiKey,
+    geminiModels,
+    openrouterApiKey,
+    openrouterModels,
+  };
 }
 
 export class ConfigError extends Error {}

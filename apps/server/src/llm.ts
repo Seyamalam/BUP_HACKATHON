@@ -5,26 +5,19 @@ import { createGateway, generateText, type LanguageModel } from "ai";
 import { GuardrailError, validateInterpretations } from "./guardrails";
 import type { DirectiveInterpretation, OptimizeRequest } from "./schema";
 
-// Vercel AI Gateway chain, in preference order: all are raced immediately.
+// Chains are raced small on purpose: the FIRST model of Gateway and Gemini
+// fire at t=0, and each chain's next model hedges FALLBACK_DELAY_MS behind.
+// Typical request costs 2 calls; the full chain costs 6. Racing everything
+// would burn free-tier quotas 12x per scenario for no latency gain.
 export const DEFAULT_GATEWAY_MODELS = [
   "inclusionai/ling-3.0-flash-fin",
-  "inclusionai/ling-3.0-flash-fin-free",
   "inclusionai/ling-3.0-flash-sante",
-  "inclusionai/ling-3.0-flash-sante-free",
-  "inclusionai/ling-3.0-flash-vl",
-  "inclusionai/ling-3.0-flash-vl-free",
-  "poolside/laguna-s-2.1-free",
 ];
 export const DEFAULT_OPENROUTER_MODELS = [
   "inclusionai/ling-3.0-flash-sante:free",
   "openrouter/free",
 ];
-// Gemini chain, in preference order: all are raced immediately.
-export const DEFAULT_GEMINI_MODELS = [
-  "gemini-3.8-flash",
-  "gemini-3.7-flash",
-  "gemini-3.5-flash-lite",
-];
+export const DEFAULT_GEMINI_MODELS = ["gemini-3.8-flash", "gemini-3.7-flash"];
 
 const ATTEMPT_TIMEOUT_MS = 20_000;
 // Hard ceiling for the whole race: the judge caps requests at 30 s, so a
@@ -164,47 +157,53 @@ export async function interpretNotes(
   if (cached) return cached;
 
   const attempts: ProviderAttempt[] = [];
-  let tier = 0;
+
+  // Stagger within each provider chain: model N starts N * FALLBACK_DELAY_MS
+  // after the chain's first model. Gateway and Gemini race at t=0; OpenRouter
+  // joins one hedge later as the last resort. Typical request = 2 calls.
+  let providerBaseDelay = 0;
 
   if (config.gatewayApiKey) {
     const gateway = createGateway({ apiKey: config.gatewayApiKey });
-    const delayMs = tier++ * FALLBACK_DELAY_MS;
-    for (const modelId of config.gatewayModels) {
+    const base = providerBaseDelay;
+    config.gatewayModels.forEach((modelId, i) => {
       const model = gateway(modelId);
       attempts.push({
         label: `gateway/${modelId}`,
-        delayMs,
+        delayMs: base + i * FALLBACK_DELAY_MS,
         start: () => attemptModel(model, input),
       });
-    }
+    });
+    providerBaseDelay += FALLBACK_DELAY_MS;
   }
 
   if (config.geminiApiKey) {
     const google = createGoogleGenerativeAI({ apiKey: config.geminiApiKey });
-    const delayMs = tier++ * FALLBACK_DELAY_MS;
-    for (const modelId of config.geminiModels) {
+    // Gemini races with the first tier, not behind it: cross-provider
+    // diversity at t=0 beats waiting for a gateway-only failure.
+    config.geminiModels.forEach((modelId, i) => {
       const model = google(modelId);
       // Lite models do not expose a thinking toggle; passing it errors.
       const options = modelId.includes("lite") ? undefined : NO_THINKING;
       attempts.push({
         label: `gemini/${modelId}`,
-        delayMs,
+        delayMs: i * FALLBACK_DELAY_MS,
         start: () => attemptModel(model, input, options),
       });
-    }
+    });
   }
 
   if (config.openrouterApiKey) {
     const openrouter = createOpenRouter({ apiKey: config.openrouterApiKey });
-    const delayMs = tier++ * FALLBACK_DELAY_MS;
-    for (const modelId of config.openrouterModels) {
+    const base = providerBaseDelay;
+    config.openrouterModels.forEach((modelId, i) => {
       const model = openrouter(modelId);
       attempts.push({
         label: `openrouter/${modelId}`,
-        delayMs,
+        delayMs: base + i * FALLBACK_DELAY_MS,
         start: () => attemptModel(model, input),
       });
-    }
+    });
   }
 
   if (attempts.length === 0) {
@@ -222,7 +221,9 @@ export async function interpretNotes(
     return await Promise.race([
       Promise.any(races),
       sleep(OVERALL_DEADLINE_MS).then(() => {
-        throw new Error(`all LLM attempts exceeded the ${OVERALL_DEADLINE_MS / 1000} s overall deadline`);
+        throw new Error(
+          `all LLM attempts exceeded the ${OVERALL_DEADLINE_MS / 1000} s overall deadline`,
+        );
       }),
     ]);
   } catch (err) {

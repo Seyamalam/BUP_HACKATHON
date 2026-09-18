@@ -5,132 +5,429 @@
     <meta name="viewport" content="width=1920, height=1080" />
     <script src="./assets/gsap.min.js"></script>
     <style>
-      * { margin: 0; padding: 0; box-sizing: border-box; }
-      html, body {
-        width: 1920px; height: 1080px; overflow: hidden; background: #0a0e0b;
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        width: 1920px;
+        height: 1080px;
+        overflow: hidden;
+        background: #0a0e0b;
       }
       #root {
-        width: 100%; height: 100%; position: relative;
-        font-family: ui-sans-serif, system-ui, sans-serif; color: #ecefef;
+        width: 100%;
+        height: 100%;
+        position: relative;
+        font-family: ui-sans-serif, system-ui, sans-serif;
+        color: #ecefef;
         background:
-          radial-gradient(1200px 700px at 85% -10%, rgba(52, 211, 153, 0.10), transparent 60%),
+          radial-gradient(1200px 700px at 85% -10%, rgba(52, 211, 153, 0.1), transparent 60%),
           radial-gradient(900px 600px at 5% 110%, rgba(96, 165, 250, 0.08), transparent 55%),
           #0a0e0b;
       }
-      .scene { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 90px 120px 200px; }
-      .overlay { position: absolute; inset: 0; pointer-events: none; }
-      .kicker { font-family: ui-monospace, monospace; font-size: 22px; letter-spacing: 0.28em; text-transform: uppercase; color: #34d399; margin-bottom: 18px; }
-      h1.title { font-size: 112px; font-weight: 700; letter-spacing: -0.03em; line-height: 1.02; }
-      h2.heading { font-size: 60px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.1; text-align: center; }
-      .muted { color: #9aa3a0; }
-      .accent { color: #34d399; }
-      .amber { color: #fbbf24; }
-      .blue { color: #60a5fa; }
-      .rule { width: 180px; height: 5px; border-radius: 3px; background: #34d399; margin-top: 34px; }
-      .row { display: flex; gap: 28px; align-items: stretch; justify-content: center; }
-      .card { background: #10160f; border: 1px solid #22352a; border-radius: 20px; padding: 30px 34px; }
-      .card h3 { font-size: 30px; font-weight: 650; margin-bottom: 10px; }
-      .card p { font-size: 24px; color: #9aa3a0; line-height: 1.45; }
-      .chip { font-family: ui-monospace, monospace; font-size: 24px; background: #10160f; border: 1px solid #22352a; border-radius: 12px; padding: 14px 22px; color: #d7dedb; }
-      .mono { font-family: ui-monospace, monospace; }
-      .sub {
-        position: absolute; left: 0; right: 0; margin-left: auto; margin-right: auto; width: fit-content;
-        bottom: 46px; max-width: 1560px; background: rgba(5, 8, 6, 0.84); border: 1px solid rgba(255,255,255,0.09);
-        border-radius: 16px; padding: 20px 36px; font-size: 32px; line-height: 1.42; text-align: center; color: #f2f4f3;
-        box-shadow: 0 12px 40px rgba(0,0,0,0.45);
+      .scene {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 90px 120px 200px;
       }
-      .sub b { color: #34d399; font-weight: 650; }
+      .overlay {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+      }
+      .kicker {
+        font-family: ui-monospace, monospace;
+        font-size: 22px;
+        letter-spacing: 0.28em;
+        text-transform: uppercase;
+        color: #34d399;
+        margin-bottom: 18px;
+      }
+      h1.title {
+        font-size: 112px;
+        font-weight: 700;
+        letter-spacing: -0.03em;
+        line-height: 1.02;
+      }
+      h2.heading {
+        font-size: 60px;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+        line-height: 1.1;
+        text-align: center;
+      }
+      .muted {
+        color: #9aa3a0;
+      }
+      .accent {
+        color: #34d399;
+      }
+      .amber {
+        color: #fbbf24;
+      }
+      .blue {
+        color: #60a5fa;
+      }
+      .rule {
+        width: 180px;
+        height: 5px;
+        border-radius: 3px;
+        background: #34d399;
+        margin-top: 34px;
+      }
+      .row {
+        display: flex;
+        gap: 28px;
+        align-items: stretch;
+        justify-content: center;
+      }
+      .card {
+        background: #10160f;
+        border: 1px solid #22352a;
+        border-radius: 20px;
+        padding: 30px 34px;
+      }
+      .card h3 {
+        font-size: 30px;
+        font-weight: 650;
+        margin-bottom: 10px;
+      }
+      .card p {
+        font-size: 24px;
+        color: #9aa3a0;
+        line-height: 1.45;
+      }
+      .chip {
+        font-family: ui-monospace, monospace;
+        font-size: 24px;
+        background: #10160f;
+        border: 1px solid #22352a;
+        border-radius: 12px;
+        padding: 14px 22px;
+        color: #d7dedb;
+      }
+      .mono {
+        font-family: ui-monospace, monospace;
+      }
+      .sub {
+        position: absolute;
+        left: 0;
+        right: 0;
+        margin-left: auto;
+        margin-right: auto;
+        width: fit-content;
+        bottom: 38px;
+        max-width: 1380px;
+        background: rgba(5, 8, 6, 0.84);
+        border: 1px solid rgba(255, 255, 255, 0.09);
+        border-radius: 13px;
+        padding: 13px 26px;
+        font-size: 24px;
+        line-height: 1.4;
+        text-align: center;
+        color: #f2f4f3;
+        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+      }
+      .sub b {
+        color: #34d399;
+        font-weight: 650;
+      }
       .footage {
-        position: absolute; left: 0; right: 0; margin-left: auto; margin-right: auto; top: 118px;
-        width: 1560px; border-radius: 18px; border: 1px solid #22352a;
-        box-shadow: 0 30px 90px rgba(0,0,0,0.55);
+        position: absolute;
+        left: 0;
+        right: 0;
+        margin-left: auto;
+        margin-right: auto;
+        top: 96px;
+        width: 1420px;
+        border-radius: 18px;
+        border: 1px solid #22352a;
+        box-shadow: 0 30px 90px rgba(0, 0, 0, 0.55);
       }
       .footage-label {
-        position: absolute; top: 64px; left: 0; right: 0; margin-left: auto; margin-right: auto; width: fit-content;
-        font-family: ui-monospace, monospace; font-size: 20px; letter-spacing: 0.22em; text-transform: uppercase; color: #9aa3a0;
+        position: absolute;
+        top: 52px;
+        left: 0;
+        right: 0;
+        margin-left: auto;
+        margin-right: auto;
+        width: fit-content;
+        font-family: ui-monospace, monospace;
+        font-size: 19px;
+        letter-spacing: 0.22em;
+        text-transform: uppercase;
+        color: #9aa3a0;
       }
-      .pipe { display: flex; align-items: center; gap: 16px; margin-top: 38px; }
-      .stage { width: 232px; background: #10160f; border: 1px solid #22352a; border-radius: 18px; padding: 22px 16px; text-align: center; }
-      .stage .n { font-family: ui-monospace, monospace; font-size: 19px; color: #34d399; margin-bottom: 8px; }
-      .stage .t { font-size: 24px; font-weight: 650; line-height: 1.2; }
-      .arrow { font-size: 32px; color: #4e6457; }
-      .detail { width: 690px; background: #10160f; border: 1px solid #22352a; border-radius: 18px; padding: 26px 30px; }
-      .detail h4 { font-size: 23px; font-weight: 650; color: #34d399; margin-bottom: 12px; }
-      .detail ul { list-style: none; }
-      .detail li { font-size: 21px; color: #b9c2bd; line-height: 1.5; padding-left: 22px; position: relative; }
-      .detail li::before { content: "▸"; position: absolute; left: 0; color: #34d399; }
-      .stat { width: 320px; background: #10160f; border: 1px solid #22352a; border-radius: 20px; padding: 34px 30px; text-align: center; }
-      .stat .v { font-size: 70px; font-weight: 750; letter-spacing: -0.02em; }
-      .stat .k { font-size: 23px; color: #9aa3a0; margin-top: 8px; line-height: 1.35; }
-      .checklist { display: flex; flex-direction: column; gap: 15px; margin-top: 32px; }
-      .check { display: flex; align-items: center; gap: 18px; font-size: 29px; color: #d7dedb; }
-      .check .box { width: 34px; height: 34px; border-radius: 9px; background: rgba(52,211,153,0.14); border: 1px solid #34d399; color: #34d399; display: flex; align-items: center; justify-content: center; font-size: 22px; }
-      .passline { font-family: ui-monospace, monospace; font-size: 25px; line-height: 1.6; color: #c9d4e3; }
-      .passline b { color: #56d364; font-weight: 600; }
-      .banner { margin-top: 24px; font-size: 42px; font-weight: 700; color: #34d399; }
-      .tier { width: 400px; background: #10160f; border: 1px solid #22352a; border-radius: 18px; padding: 26px 28px; }
-      .tier .tag { font-family: ui-monospace, monospace; font-size: 18px; color: #fbbf24; margin-bottom: 8px; }
-      .tier h3 { font-size: 28px; font-weight: 650; margin-bottom: 8px; }
-      .tier p { font-size: 21px; color: #9aa3a0; line-height: 1.45; }
+      .pipe {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        margin-top: 38px;
+      }
+      .stage {
+        width: 232px;
+        background: #10160f;
+        border: 1px solid #22352a;
+        border-radius: 18px;
+        padding: 22px 16px;
+        text-align: center;
+      }
+      .stage .n {
+        font-family: ui-monospace, monospace;
+        font-size: 19px;
+        color: #34d399;
+        margin-bottom: 8px;
+      }
+      .stage .t {
+        font-size: 24px;
+        font-weight: 650;
+        line-height: 1.2;
+      }
+      .arrow {
+        font-size: 32px;
+        color: #4e6457;
+      }
+      .detail {
+        width: 690px;
+        background: #10160f;
+        border: 1px solid #22352a;
+        border-radius: 18px;
+        padding: 26px 30px;
+      }
+      .detail h4 {
+        font-size: 23px;
+        font-weight: 650;
+        color: #34d399;
+        margin-bottom: 12px;
+      }
+      .detail ul {
+        list-style: none;
+      }
+      .detail li {
+        font-size: 21px;
+        color: #b9c2bd;
+        line-height: 1.5;
+        padding-left: 22px;
+        position: relative;
+      }
+      .detail li::before {
+        content: "▸";
+        position: absolute;
+        left: 0;
+        color: #34d399;
+      }
+      .stat {
+        width: 320px;
+        background: #10160f;
+        border: 1px solid #22352a;
+        border-radius: 20px;
+        padding: 34px 30px;
+        text-align: center;
+      }
+      .stat .v {
+        font-size: 70px;
+        font-weight: 750;
+        letter-spacing: -0.02em;
+      }
+      .stat .k {
+        font-size: 23px;
+        color: #9aa3a0;
+        margin-top: 8px;
+        line-height: 1.35;
+      }
+      .checklist {
+        display: flex;
+        flex-direction: column;
+        gap: 15px;
+        margin-top: 32px;
+      }
+      .check {
+        display: flex;
+        align-items: center;
+        gap: 18px;
+        font-size: 29px;
+        color: #d7dedb;
+      }
+      .check .box {
+        width: 34px;
+        height: 34px;
+        border-radius: 9px;
+        background: rgba(52, 211, 153, 0.14);
+        border: 1px solid #34d399;
+        color: #34d399;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 22px;
+      }
+      .passline {
+        font-family: ui-monospace, monospace;
+        font-size: 25px;
+        line-height: 1.6;
+        color: #c9d4e3;
+      }
+      .passline b {
+        color: #56d364;
+        font-weight: 600;
+      }
+      .banner {
+        margin-top: 24px;
+        font-size: 42px;
+        font-weight: 700;
+        color: #34d399;
+      }
+      .tier {
+        width: 400px;
+        background: #10160f;
+        border: 1px solid #22352a;
+        border-radius: 18px;
+        padding: 26px 28px;
+      }
+      .tier .tag {
+        font-family: ui-monospace, monospace;
+        font-size: 18px;
+        color: #fbbf24;
+        margin-bottom: 8px;
+      }
+      .tier h3 {
+        font-size: 28px;
+        font-weight: 650;
+        margin-bottom: 8px;
+      }
+      .tier p {
+        font-size: 21px;
+        color: #9aa3a0;
+        line-height: 1.45;
+      }
     </style>
   </head>
   <body>
-    <div id="root" data-composition-id="main" data-start="0" data-duration="165" data-width="1920" data-height="1080">
-
+    <div
+      id="root"
+      data-composition-id="main"
+      data-start="0"
+      data-duration="165"
+      data-width="1920"
+      data-height="1080"
+    >
       <!-- S2 footage: live benchmark (timed media element, owns its own window) -->
-      <video id="demo-footage" class="footage" src="./assets/demo-run-cut.mp4" data-start="6" data-duration="27.2" muted></video>
+      <video
+        id="demo-footage"
+        class="footage"
+        src="./assets/demo-run-cut.mp4"
+        data-start="6"
+        data-duration="27.2"
+        muted
+      ></video>
 
       <!-- S6 footage: Scalar docs -->
-      <video id="docs-footage" class="footage" src="./assets/docs-run-cut.mp4" data-start="103" data-duration="18" muted></video>
+      <video
+        id="docs-footage"
+        class="footage"
+        src="./assets/docs-run-cut.mp4"
+        data-start="103"
+        data-duration="18"
+        muted
+      ></video>
 
       <!-- S1 · Huntrix title · 0-6 -->
       <section class="clip scene" id="s1" data-start="0" data-duration="6">
-        <div class="inner" style="display:flex;flex-direction:column;align-items:center;">
-          <div class="chip" style="margin-bottom:40px;">Team <span class="accent">Huntrix</span> · BUP CSE Fest 2026</div>
+        <div class="inner" style="display: flex; flex-direction: column; align-items: center">
+          <div class="chip" style="margin-bottom: 40px">
+            Team <span class="accent">Huntrix</span> · BUP CSE Fest 2026
+          </div>
           <h1 class="title">GridWise <span class="accent">LLM</span></h1>
           <div class="rule"></div>
-          <p class="muted" style="font-size:33px;margin-top:30px;">Smart Campus Energy Optimization</p>
+          <p class="muted" style="font-size: 33px; margin-top: 30px">
+            Smart Campus Energy Optimization
+          </p>
         </div>
-        <div class="sub">GridWise LLM, by Team Huntrix. Operator notes in, optimal energy schedules out.</div>
+        <div class="sub">
+          GridWise LLM, by Team Huntrix. Operator notes in, optimal energy schedules out.
+        </div>
       </section>
 
       <!-- S2 overlay · demo narration · 6-34 -->
       <section class="clip overlay" id="s2" data-start="6" data-duration="28">
         <div class="footage-label">live benchmark · production worker · 20 sequential requests</div>
-        <div class="sub">Demo first. Ten repeat requests: the cache answers all ten, <b>median 172 ms</b>. Ten brand new notes: full LLM path, <b>median 1.7 s</b>. Twenty requests, twenty 200s. The judge allows thirty seconds per call.</div>
+        <div class="sub">
+          Demo first. Ten repeat requests: the cache answers all ten, <b>median 172 ms</b>. Ten
+          brand new notes: full LLM path, <b>median 1.7 s</b>. Twenty requests, twenty 200s. The
+          judge allows thirty seconds per call.
+        </div>
       </section>
 
       <!-- S3 · Problem · 34-49 -->
       <section class="clip scene" id="s3" data-start="34" data-duration="15">
         <div class="kicker">The problem</div>
         <h2 class="heading">One campus, three power sources, 24 hours</h2>
-        <div class="row" style="margin-top:46px;">
-          <div class="card c3" style="width:380px;"><h3>Grid import</h3><p>Electricity bought from the grid. Price changes every hour.</p></div>
-          <div class="card c3" style="width:380px;"><h3 class="amber">Rooftop solar</h3><p>Free energy when the sun is up. Unused solar is lost.</p></div>
-          <div class="card c3" style="width:380px;"><h3 class="blue">Battery</h3><p>Moves energy between hours. Must end the day where it started.</p></div>
+        <div class="row" style="margin-top: 46px">
+          <div class="card c3" style="width: 380px">
+            <h3>Grid import</h3>
+            <p>Electricity bought from the grid. Price changes every hour.</p>
+          </div>
+          <div class="card c3" style="width: 380px">
+            <h3 class="amber">Rooftop solar</h3>
+            <p>Free energy when the sun is up. Unused solar is lost.</p>
+          </div>
+          <div class="card c3" style="width: 380px">
+            <h3 class="blue">Battery</h3>
+            <p>Moves energy between hours. Must end the day where it started.</p>
+          </div>
         </div>
-        <div class="chip c3" style="margin-top:40px;color:#f2f4f3;">"Solar output will drop to about 20% from 1 PM to 3 PM."</div>
-        <div class="sub">The problem: a campus on grid power, rooftop solar, and a battery. Operators send notes in plain English. The service must understand the note, <b>respect every energy rule, and minimize grid cost</b>.</div>
+        <div class="chip c3" style="margin-top: 40px; color: #f2f4f3">
+          "Solar output will drop to about 20% from 1 PM to 3 PM."
+        </div>
+        <div class="sub">
+          The problem: a campus on grid power, rooftop solar, and a battery. Operators send notes in
+          plain English. The service must understand the note,
+          <b>respect every energy rule, and minimize grid cost</b>.
+        </div>
       </section>
 
       <!-- S4 · Architecture deep dive · 49-81 -->
       <section class="clip scene" id="s4" data-start="49" data-duration="32">
         <div class="kicker">Architecture</div>
-        <h2 class="heading" style="font-size:52px;">Six stages, one request</h2>
+        <h2 class="heading" style="font-size: 52px">Six stages, one request</h2>
         <div class="pipe">
-          <div class="stage st"><div class="n">01</div><div class="t">Validate request</div></div>
+          <div class="stage st">
+            <div class="n">01</div>
+            <div class="t">Validate request</div>
+          </div>
           <div class="arrow">→</div>
-          <div class="stage st"><div class="n">02</div><div class="t">LLM interprets notes</div></div>
+          <div class="stage st">
+            <div class="n">02</div>
+            <div class="t">LLM interprets notes</div>
+          </div>
           <div class="arrow">→</div>
-          <div class="stage st"><div class="n">03</div><div class="t">Guardrails check</div></div>
+          <div class="stage st">
+            <div class="n">03</div>
+            <div class="t">Guardrails check</div>
+          </div>
           <div class="arrow">→</div>
-          <div class="stage st"><div class="n">04</div><div class="t">Fold constraints</div></div>
+          <div class="stage st">
+            <div class="n">04</div>
+            <div class="t">Fold constraints</div>
+          </div>
           <div class="arrow">→</div>
-          <div class="stage st"><div class="n">05</div><div class="t">Solve LP</div></div>
+          <div class="stage st">
+            <div class="n">05</div>
+            <div class="t">Solve LP</div>
+          </div>
           <div class="arrow">→</div>
-          <div class="stage st"><div class="n">06</div><div class="t">Verify plan</div></div>
+          <div class="stage st">
+            <div class="n">06</div>
+            <div class="t">Verify plan</div>
+          </div>
         </div>
-        <div class="row" style="margin-top:36px;gap:24px;">
+        <div class="row" style="margin-top: 36px; gap: 24px">
           <div class="detail st2">
             <h4>Guardrails reject</h4>
             <ul>
@@ -150,66 +447,116 @@
             </ul>
           </div>
         </div>
-        <div class="sub">Architecture: six stages per request. Validate. Interpret. Guardrail. Fold. Solve. <b>Then the verifier replays the plan against every rule the judge runs.</b></div>
+        <div class="sub">
+          Architecture: six stages per request. Validate. Interpret. Guardrail. Fold. Solve.
+          <b>Then the verifier replays the plan against every rule the judge runs.</b>
+        </div>
       </section>
 
       <!-- S5 · Free-tier chain · 81-103 -->
       <section class="clip scene" id="s5" data-start="81" data-duration="22">
         <div class="kicker">The budget: zero</div>
-        <h2 class="heading" style="font-size:54px;">Squeezing every free tier</h2>
-        <div class="row" style="margin-top:44px;">
-          <div class="tier c5"><div class="tag">t=0 ms</div><h3 class="accent">AI Gateway ×7</h3><p>Seven free models raced immediately through the Vercel AI SDK.</p></div>
-          <div class="tier c5"><div class="tag">t=0 ms</div><h3 class="accent">Gemini ×3</h3><p>3.8, 3.7, 3.5-lite. Thinking disabled: extraction, not essays.</p></div>
-          <div class="tier c5"><div class="tag">t=+2.5 s</div><h3 class="blue">OpenRouter ×2</h3><p>Hedged fallback joins late. First guardrail-passing answer wins.</p></div>
+        <h2 class="heading" style="font-size: 54px">Squeezing every free tier</h2>
+        <div class="row" style="margin-top: 44px">
+          <div class="tier c5">
+            <div class="tag">t=0 ms</div>
+            <h3 class="accent">AI Gateway</h3>
+            <p>ling-3.0-flash-fin fires instantly through the Vercel AI SDK.</p>
+          </div>
+          <div class="tier c5">
+            <div class="tag">t=0 ms</div>
+            <h3 class="accent">Gemini 3.8</h3>
+            <p>Raced beside it, thinking disabled. Two calls, not twelve.</p>
+          </div>
+          <div class="tier c5">
+            <div class="tag">t=+2.5 s</div>
+            <h3 class="blue">The hedges</h3>
+            <p>Next in each chain plus OpenRouter, one step behind. First valid answer wins.</p>
+          </div>
         </div>
-        <div class="chip c5" style="margin-top:42px;">repeat scenario? cache hit, <span class="accent">no model call at all</span> — broke, not broken.</div>
-        <div class="sub">Now the fun part. We are students. Free tiers are the budget. Every request races a chain of free models: AI Gateway and Gemini answer first, OpenRouter hedges 2.5 seconds later. <b>First valid answer wins.</b></div>
+        <div class="chip c5" style="margin-top: 42px">
+          repeat scenario? cache hit, <span class="accent">no model call at all</span> — broke, not
+          broken.
+        </div>
+        <div class="sub">
+          Now the fun part. We are students. Free tiers are the budget. Every request races the
+          first free model of two providers; the next in each chain hedges two and a half seconds
+          behind. <b>First valid answer wins.</b>
+        </div>
       </section>
 
       <!-- S6 overlay · docs narration · 103-121 -->
       <section class="clip overlay" id="s6" data-start="103" data-duration="18">
         <div class="footage-label">Scalar API reference · live at /docs</div>
-        <div class="sub">The API documents itself. The OpenAPI spec lives at <b>/openapi.json</b>, rendered by Scalar at <b>/docs</b>: every endpoint, every field, every enum, served by the same worker the judge calls.</div>
+        <div class="sub">
+          The API documents itself. The OpenAPI spec lives at <b>/openapi.json</b>, rendered by
+          Scalar at <b>/docs</b>: every endpoint, every field, every enum, served by the same worker
+          the judge calls.
+        </div>
       </section>
 
       <!-- S7 · Optimizer · 121-141 -->
       <section class="clip scene" id="s7" data-start="121" data-duration="20">
         <div class="kicker">Optimization</div>
         <h2 class="heading">Exact math, not a heuristic</h2>
-        <div class="row" style="margin-top:44px;">
-          <div class="stat c7"><div class="v accent">120</div><div class="k">variables over 24 hours</div></div>
-          <div class="stat c7"><div class="v amber">2 ms</div><div class="k">solve time per scenario</div></div>
-          <div class="stat c7"><div class="v blue">1.0000</div><div class="k">cost ratio, all 10 public cases</div></div>
+        <div class="row" style="margin-top: 44px">
+          <div class="stat c7">
+            <div class="v accent">120</div>
+            <div class="k">variables over 24 hours</div>
+          </div>
+          <div class="stat c7">
+            <div class="v amber">2 ms</div>
+            <div class="k">solve time per scenario</div>
+          </div>
+          <div class="stat c7">
+            <div class="v blue">1.0000</div>
+            <div class="k">cost ratio, all 10 public cases</div>
+          </div>
         </div>
-        <div class="chip c7" style="margin-top:40px;">charge and discharge are netted → one clean battery action per hour</div>
-        <div class="sub">The optimizer is exact math, not a heuristic. Charge and discharge are netted into one clean battery action per hour. Solve time is about two milliseconds. It matches the reference optimum on all ten public cases, <b>ratio one point zero</b>.</div>
+        <div class="chip c7" style="margin-top: 40px">
+          charge and discharge are netted → one clean battery action per hour
+        </div>
+        <div class="sub">
+          The optimizer is exact math, not a heuristic. Charge and discharge are netted into one
+          clean battery action per hour. Solve time is about two milliseconds. It matches the
+          reference optimum on all ten public cases, <b>ratio one point zero</b>.
+        </div>
       </section>
 
       <!-- S8 · Results · 141-157 -->
       <section class="clip scene" id="s8" data-start="141" data-duration="16">
         <div class="kicker">Results</div>
-        <div class="card" style="margin-top:16px;padding:32px 46px;">
+        <div class="card" style="margin-top: 16px; padding: 32px 46px">
           <div class="passline"><b>PASS</b> 10/10 public cases · cost ratio 1.0000 each</div>
           <div class="passline"><b>PASS</b> interpretation = ground truth on every note</div>
           <div class="passline"><b>PASS</b> plan valid under our and judge directives</div>
           <div class="passline"><b>PASS</b> 20/20 live requests · cold ≈ 2 s · cached ≈ 172 ms</div>
           <div class="banner">10 passed, 0 failed</div>
         </div>
-        <div class="sub">Results. Ten public cases, ten passed. Interpretations match ground truth on every note. Plans stay valid under our directives and the judge's. <b>Cold latency around two seconds, cached under two hundred milliseconds.</b></div>
+        <div class="sub">
+          Results. Ten public cases, ten passed. Interpretations match ground truth on every note.
+          Plans stay valid under our directives and the judge's.
+          <b>Cold latency around two seconds, cached under two hundred milliseconds.</b>
+        </div>
       </section>
 
       <!-- S9 · Close · 157-165 -->
       <section class="clip scene" id="s9" data-start="157" data-duration="8">
-        <div class="inner" style="display:flex;flex-direction:column;align-items:center;">
+        <div class="inner" style="display: flex; flex-direction: column; align-items: center">
           <h2 class="heading">GridWise <span class="accent">LLM</span></h2>
-          <div class="row" style="margin-top:40px;">
+          <div class="row" style="margin-top: 40px">
             <div class="chip c9 mono">gridwise-llm.seyamalam41.workers.dev</div>
             <div class="chip c9 mono">docker.io/touhidulalam41/gridwise-llm</div>
           </div>
-          <div class="rule" style="margin-top:44px;"></div>
-          <p class="muted c9" style="font-size:32px;margin-top:30px;">Team Huntrix — thanks for watching</p>
+          <div class="rule" style="margin-top: 44px"></div>
+          <p class="muted c9" style="font-size: 32px; margin-top: 30px">
+            Team Huntrix — thanks for watching
+          </p>
         </div>
-        <div class="sub">GridWise LLM. Cloudflare Workers, Docker on Docker Hub, everything reproducible from the README. Team Huntrix, thanks for watching.</div>
+        <div class="sub">
+          GridWise LLM. Cloudflare Workers, Docker on Docker Hub, everything reproducible from the
+          README. Team Huntrix, thanks for watching.
+        </div>
       </section>
     </div>
 
@@ -217,11 +564,21 @@
       const tl = gsap.timeline({ paused: true });
 
       function enter(sel, at, opts = {}) {
-        tl.fromTo(sel, { opacity: 0, y: 26 }, { opacity: 1, y: 0, duration: 0.55, ease: "power2.out", ...opts }, at);
+        tl.fromTo(
+          sel,
+          { opacity: 0, y: 26 },
+          { opacity: 1, y: 0, duration: 0.55, ease: "power2.out", ...opts },
+          at,
+        );
       }
 
       // S1 · 0-6
-      tl.fromTo("#s1 .inner", { opacity: 0, scale: 0.96 }, { opacity: 1, scale: 1, duration: 0.7, ease: "power2.out" }, 0.25);
+      tl.fromTo(
+        "#s1 .inner",
+        { opacity: 0, scale: 0.96 },
+        { opacity: 1, scale: 1, duration: 0.7, ease: "power2.out" },
+        0.25,
+      );
       tl.fromTo("#s1 .rule", { width: 0 }, { width: 180, duration: 0.5, ease: "power2.out" }, 0.8);
       tl.fromTo("#s1 .sub", { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.45 }, 1.0);
 
@@ -230,20 +587,43 @@
       tl.fromTo("#s2 .sub", { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.5 }, 6.6);
 
       // S3 · 34-49
-      enter("#s3 .kicker", 34.2); enter("#s3 .heading", 34.35);
-      tl.fromTo("#s3 .c3", { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 0.5, stagger: 0.14, ease: "power2.out" }, 34.9);
+      enter("#s3 .kicker", 34.2);
+      enter("#s3 .heading", 34.35);
+      tl.fromTo(
+        "#s3 .c3",
+        { opacity: 0, y: 30 },
+        { opacity: 1, y: 0, duration: 0.5, stagger: 0.14, ease: "power2.out" },
+        34.9,
+      );
       tl.fromTo("#s3 .sub", { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.5 }, 35.2);
 
       // S4 · 49-81
-      enter("#s4 .kicker", 49.2); enter("#s4 .heading", 49.35);
-      tl.fromTo("#s4 .stage", { opacity: 0, y: 26 }, { opacity: 1, y: 0, duration: 0.4, stagger: 0.12, ease: "power2.out" }, 49.9);
+      enter("#s4 .kicker", 49.2);
+      enter("#s4 .heading", 49.35);
+      tl.fromTo(
+        "#s4 .stage",
+        { opacity: 0, y: 26 },
+        { opacity: 1, y: 0, duration: 0.4, stagger: 0.12, ease: "power2.out" },
+        49.9,
+      );
       tl.fromTo("#s4 .arrow", { opacity: 0 }, { opacity: 1, duration: 0.3, stagger: 0.12 }, 50.2);
-      tl.fromTo("#s4 .st2", { opacity: 0, y: 24 }, { opacity: 1, y: 0, duration: 0.5, stagger: 0.18, ease: "power2.out" }, 52.0);
+      tl.fromTo(
+        "#s4 .st2",
+        { opacity: 0, y: 24 },
+        { opacity: 1, y: 0, duration: 0.5, stagger: 0.18, ease: "power2.out" },
+        52.0,
+      );
       tl.fromTo("#s4 .sub", { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.5 }, 49.8);
 
       // S5 · 81-103
-      enter("#s5 .kicker", 81.2); enter("#s5 .heading", 81.35);
-      tl.fromTo("#s5 .c5", { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 0.5, stagger: 0.16, ease: "power2.out" }, 81.9);
+      enter("#s5 .kicker", 81.2);
+      enter("#s5 .heading", 81.35);
+      tl.fromTo(
+        "#s5 .c5",
+        { opacity: 0, y: 30 },
+        { opacity: 1, y: 0, duration: 0.5, stagger: 0.16, ease: "power2.out" },
+        81.9,
+      );
       tl.fromTo("#s5 .sub", { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.5 }, 82.2);
 
       // S6 · 103-121
@@ -251,19 +631,45 @@
       tl.fromTo("#s6 .sub", { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.5 }, 103.6);
 
       // S7 · 121-141
-      enter("#s7 .kicker", 121.2); enter("#s7 .heading", 121.35);
-      tl.fromTo("#s7 .c7", { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 0.5, stagger: 0.15, ease: "power2.out" }, 121.9);
+      enter("#s7 .kicker", 121.2);
+      enter("#s7 .heading", 121.35);
+      tl.fromTo(
+        "#s7 .c7",
+        { opacity: 0, y: 30 },
+        { opacity: 1, y: 0, duration: 0.5, stagger: 0.15, ease: "power2.out" },
+        121.9,
+      );
       tl.fromTo("#s7 .sub", { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.5 }, 122.2);
 
       // S8 · 141-157
       enter("#s8 .kicker", 141.2);
-      tl.fromTo("#s8 .card", { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 0.55, ease: "power2.out" }, 141.7);
-      tl.fromTo("#s8 .banner", { opacity: 0, scale: 0.92 }, { opacity: 1, scale: 1, duration: 0.5, ease: "back.out(1.6)" }, 142.6);
+      tl.fromTo(
+        "#s8 .card",
+        { opacity: 0, y: 30 },
+        { opacity: 1, y: 0, duration: 0.55, ease: "power2.out" },
+        141.7,
+      );
+      tl.fromTo(
+        "#s8 .banner",
+        { opacity: 0, scale: 0.92 },
+        { opacity: 1, scale: 1, duration: 0.5, ease: "back.out(1.6)" },
+        142.6,
+      );
       tl.fromTo("#s8 .sub", { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.5 }, 142.0);
 
       // S9 · 157-165
-      tl.fromTo("#s9 .inner", { opacity: 0, y: 26 }, { opacity: 1, y: 0, duration: 0.6, ease: "power2.out" }, 157.3);
-      tl.fromTo("#s9 .c9", { opacity: 0, y: 24 }, { opacity: 1, y: 0, duration: 0.5, stagger: 0.16 }, 157.9);
+      tl.fromTo(
+        "#s9 .inner",
+        { opacity: 0, y: 26 },
+        { opacity: 1, y: 0, duration: 0.6, ease: "power2.out" },
+        157.3,
+      );
+      tl.fromTo(
+        "#s9 .c9",
+        { opacity: 0, y: 24 },
+        { opacity: 1, y: 0, duration: 0.5, stagger: 0.16 },
+        157.9,
+      );
       tl.fromTo("#s9 .sub", { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.5 }, 158.2);
 
       window.__timelines["main"] = tl;

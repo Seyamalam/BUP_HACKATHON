@@ -7,8 +7,8 @@
   "workers_dev": true,
   "minify": true,
   "vars": {
-    "AI_GATEWAY_MODELS": "inclusionai/ling-3.0-flash-fin,inclusionai/ling-3.0-flash-fin-free,inclusionai/ling-3.0-flash-sante,inclusionai/ling-3.0-flash-sante-free,inclusionai/ling-3.0-flash-vl,inclusionai/ling-3.0-flash-vl-free,poolside/laguna-s-2.1-free",
-    "GEMINI_MODELS": "gemini-3.8-flash,gemini-3.7-flash,gemini-3.5-flash-lite",
+    "AI_GATEWAY_MODELS": "inclusionai/ling-3.0-flash-fin,inclusionai/ling-3.0-flash-sante",
+    "GEMINI_MODELS": "gemini-3.8-flash,gemini-3.7-flash",
     "OPENROUTER_MODELS": "inclusionai/ling-3.0-flash-sante:free,openrouter/free",
   },
 }
