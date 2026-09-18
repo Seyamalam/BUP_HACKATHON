@@ -71,7 +71,7 @@ Supported directive_type values and their REQUIRED structured_adjustment shapes:
 
 Hard rules:
 - Time windows are whole-hour, START-INCLUSIVE and END-EXCLUSIVE. Convert EVERY window with this exact procedure: start = first clock time as a 24-hour integer, end = second clock time as a 24-hour integer, then hours = [start, start+1, ..., end-1]. The end hour itself is NEVER included. If the window ends at midnight, end = 24 (so the last included hour is 23).
-  Worked examples: "1 PM to 3 PM" => start 13, end 15 => [13,14]. "from noon until 2 PM" => start 12, end 14 => [12,13]. "between 14:00 and 16:00" => [14,15]. "from 6 PM until 9 PM" => start 18, end 21 => [18,19,20]. "from 6 PM until 10 PM" => start 18, end 22 => [18,19,20,21]. "from 7 PM until 10 PM" => [19,20,21]. "from 2 AM until 5 AM" => [2,3,4]. "from 10 PM until midnight" => [22,23]. "from midnight until 3 AM" => [0,1,2].
+  Worked examples: "1 PM to 3 PM" => start 13, end 15 => [13,14]. "from noon until 2 PM" => start 12, end 14 => [12,13]. "between 14:00 and 16:00" => [14,15]. "from 6 PM until 9 PM" => start 18, end 21 => [18,19,20]. "from 6 PM until 10 PM" => start 18, end 22 => [18,19,20,21]. "from 7 PM until 10 PM" => [19,20,21]. "from 2 AM until 5 AM" => [2,3,4]. "from 10 PM until midnight" => [22,23]. "from midnight until 3 AM" => [0,1,2]. If a window CROSSES midnight (the end time is earlier than the start), the hours wrap around: "from 10 PM until 2 AM" => [22,23,0,1].
 - "hours" must contain unique integers 0-23 in ascending order.
 - For every non-no_op directive: applies=true. For no_op: applies=false and structured_adjustment=null.
 - NEVER invent demand, solar, tariff, or battery numbers that are not stated or implied by the note. NEVER emit a directive type not listed above.
@@ -110,7 +110,10 @@ export async function interpretNotes(
   input: OptimizeRequest,
   config: LlmConfig,
 ): Promise<DirectiveInterpretation[]> {
-  const key = cacheKey(input.operator_notes);
+  // Capacity is part of the prompt (percentage-based reserves), so it must
+  // be part of the cache key — identical notes under a different capacity
+  // are a different interpretation.
+  const key = cacheKey([`capacity:${input.battery.capacity_kwh}`, ...input.operator_notes]);
   const cached = interpretationCache.get(key);
   if (cached) return cached;
 

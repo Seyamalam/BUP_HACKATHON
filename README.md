@@ -129,7 +129,7 @@ Pullable registry reference (Docker Hub):
 
 ```
 docker.io/touhidulalam41/gridwise-llm:1.0.0
-digest: sha256:94c7d7e3b208984f1c3ace23d1e501d16fe2abc58fbe8730520f59417751982f
+digest: sha256:543154e699759c6088428291ad539b08306bae11374a71411b965f5701ef227d
 ```
 
 ```bash
