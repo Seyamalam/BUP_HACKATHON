@@ -1,10 +1,20 @@
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
-import { generateText, type LanguageModel } from "ai";
+import { createGateway, generateText, type LanguageModel } from "ai";
 
 import { GuardrailError, validateInterpretations } from "./guardrails";
 import type { DirectiveInterpretation, OptimizeRequest } from "./schema";
 
+// Vercel AI Gateway chain, in preference order: all are raced immediately.
+export const DEFAULT_GATEWAY_MODELS = [
+  "inclusionai/ling-3.0-flash-fin",
+  "inclusionai/ling-3.0-flash-fin-free",
+  "inclusionai/ling-3.0-flash-sante",
+  "inclusionai/ling-3.0-flash-sante-free",
+  "inclusionai/ling-3.0-flash-vl",
+  "inclusionai/ling-3.0-flash-vl-free",
+  "poolside/laguna-s-2.1-free",
+];
 export const DEFAULT_OPENROUTER_MODELS = [
   "inclusionai/ling-3.0-flash-sante:free",
   "openrouter/free",
@@ -17,8 +27,9 @@ export const DEFAULT_GEMINI_MODELS = [
 ];
 
 const ATTEMPT_TIMEOUT_MS = 20_000;
-// OpenRouter attempts start this long after Gemini: Gemini gets priority
-// when it is healthy, OpenRouter acts as the near-instant fallback.
+// Provider tier N starts N * FALLBACK_DELAY_MS after the first tier: the
+// highest-priority configured provider wins when healthy, later tiers act
+// as near-instant fallbacks. Tier order: AI Gateway, Gemini, OpenRouter.
 const FALLBACK_DELAY_MS = 2_500;
 const FEEDBACK_ROUNDS = 2;
 
@@ -108,6 +119,8 @@ note: "The sports office moved next month's registration deadline."
 => {"note_index":0,"applies":false,"directive_type":"no_op","structured_adjustment":null,"explanation":"Administrative note with no effect on today's energy schedule."}`;
 
 export type LlmConfig = {
+  gatewayApiKey?: string;
+  gatewayModels: string[];
   geminiApiKey?: string;
   geminiModels: string[];
   openrouterApiKey?: string;
@@ -127,9 +140,10 @@ const NO_THINKING: GenProviderOptions = {
 };
 
 /**
- * Interprets all operator notes with a hedged provider chain: Gemini fires
- * immediately, the OpenRouter model chain follows after a short delay (or
- * instantly when Gemini errors fast). The first response that passes
+ * Interprets all operator notes with a hedged provider chain: the AI Gateway
+ * model chain fires immediately, Gemini follows after a short delay, and
+ * OpenRouter after a longer one (each tier skipped when unconfigured, so the
+ * next configured tier starts at zero). The first response that passes
  * deterministic guardrails wins. Guardrail failures re-prompt that model
  * once with the exact validation error. Throws when every provider fails
  * (caller maps to a controlled 500).
@@ -146,16 +160,31 @@ export async function interpretNotes(
   if (cached) return cached;
 
   const attempts: ProviderAttempt[] = [];
+  let tier = 0;
+
+  if (config.gatewayApiKey) {
+    const gateway = createGateway({ apiKey: config.gatewayApiKey });
+    const delayMs = tier++ * FALLBACK_DELAY_MS;
+    for (const modelId of config.gatewayModels) {
+      const model = gateway(modelId);
+      attempts.push({
+        label: `gateway/${modelId}`,
+        delayMs,
+        start: () => attemptModel(model, input),
+      });
+    }
+  }
 
   if (config.geminiApiKey) {
     const google = createGoogleGenerativeAI({ apiKey: config.geminiApiKey });
+    const delayMs = tier++ * FALLBACK_DELAY_MS;
     for (const modelId of config.geminiModels) {
       const model = google(modelId);
       // Lite models do not expose a thinking toggle; passing it errors.
       const options = modelId.includes("lite") ? undefined : NO_THINKING;
       attempts.push({
         label: `gemini/${modelId}`,
-        delayMs: 0,
+        delayMs,
         start: () => attemptModel(model, input, options),
       });
     }
@@ -163,11 +192,12 @@ export async function interpretNotes(
 
   if (config.openrouterApiKey) {
     const openrouter = createOpenRouter({ apiKey: config.openrouterApiKey });
+    const delayMs = tier++ * FALLBACK_DELAY_MS;
     for (const modelId of config.openrouterModels) {
       const model = openrouter(modelId);
       attempts.push({
         label: `openrouter/${modelId}`,
-        delayMs: FALLBACK_DELAY_MS,
+        delayMs,
         start: () => attemptModel(model, input),
       });
     }
